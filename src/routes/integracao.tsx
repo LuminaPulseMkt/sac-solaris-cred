@@ -123,8 +123,7 @@ function OperatorsList({
   const updateFn = useServerFn(updateOperator);
   const regenFn = useServerFn(regenerateToken);
   const deleteFn = useServerFn(deleteOperator);
-  const testFn = useServerFn(testWebhook);
-  const [testResult, setTestResult] = useState<Awaited<ReturnType<typeof testWebhook>> | null>(null);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
 
   if (loading) return <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">Carregando…</div>;
   if (operators.length === 0) {
