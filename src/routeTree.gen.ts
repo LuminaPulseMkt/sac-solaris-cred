@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RelatoriosRouteImport } from './routes/relatorios'
+import { Route as OperadoresRouteImport } from './routes/operadores'
 import { Route as IntegracaoRouteImport } from './routes/integracao'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ConversasRouteImport } from './routes/conversas'
@@ -22,6 +23,11 @@ import { Route as ApiPublicWebhookRecvTokenRouteImport } from './routes/api/publ
 const RelatoriosRoute = RelatoriosRouteImport.update({
   id: '/relatorios',
   path: '/relatorios',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OperadoresRoute = OperadoresRouteImport.update({
+  id: '/operadores',
+  path: '/operadores',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IntegracaoRoute = IntegracaoRouteImport.update({
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/conversas': typeof ConversasRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/integracao': typeof IntegracaoRoute
+  '/operadores': typeof OperadoresRoute
   '/relatorios': typeof RelatoriosRoute
   '/conversas/$id': typeof ConversasIdRoute
   '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/conversas': typeof ConversasRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/integracao': typeof IntegracaoRoute
+  '/operadores': typeof OperadoresRoute
   '/relatorios': typeof RelatoriosRoute
   '/conversas/$id': typeof ConversasIdRoute
   '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/conversas': typeof ConversasRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/integracao': typeof IntegracaoRoute
+  '/operadores': typeof OperadoresRoute
   '/relatorios': typeof RelatoriosRoute
   '/conversas/$id': typeof ConversasIdRoute
   '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
     | '/conversas'
     | '/dashboard'
     | '/integracao'
+    | '/operadores'
     | '/relatorios'
     | '/conversas/$id'
     | '/api/public/webhook/recv/$token'
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/conversas'
     | '/dashboard'
     | '/integracao'
+    | '/operadores'
     | '/relatorios'
     | '/conversas/$id'
     | '/api/public/webhook/recv/$token'
@@ -131,6 +142,7 @@ export interface FileRouteTypes {
     | '/conversas'
     | '/dashboard'
     | '/integracao'
+    | '/operadores'
     | '/relatorios'
     | '/conversas/$id'
     | '/api/public/webhook/recv/$token'
@@ -143,6 +155,7 @@ export interface RootRouteChildren {
   ConversasRoute: typeof ConversasRouteWithChildren
   DashboardRoute: typeof DashboardRoute
   IntegracaoRoute: typeof IntegracaoRoute
+  OperadoresRoute: typeof OperadoresRoute
   RelatoriosRoute: typeof RelatoriosRoute
   ApiPublicWebhookRecvTokenRoute: typeof ApiPublicWebhookRecvTokenRoute
 }
@@ -154,6 +167,13 @@ declare module '@tanstack/react-router' {
       path: '/relatorios'
       fullPath: '/relatorios'
       preLoaderRoute: typeof RelatoriosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operadores': {
+      id: '/operadores'
+      path: '/operadores'
+      fullPath: '/operadores'
+      preLoaderRoute: typeof OperadoresRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/integracao': {
@@ -234,9 +254,20 @@ const rootRouteChildren: RootRouteChildren = {
   ConversasRoute: ConversasRouteWithChildren,
   DashboardRoute: DashboardRoute,
   IntegracaoRoute: IntegracaoRoute,
+  OperadoresRoute: OperadoresRoute,
   RelatoriosRoute: RelatoriosRoute,
   ApiPublicWebhookRecvTokenRoute: ApiPublicWebhookRecvTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
