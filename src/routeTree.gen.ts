@@ -14,7 +14,6 @@ import { Route as IntegracaoRouteImport } from './routes/integracao'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ConversasRouteImport } from './routes/conversas'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
-import { Route as ColaboradoresRouteImport } from './routes/colaboradores'
 import { Route as AlertasRouteImport } from './routes/alertas'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ConversasIdRouteImport } from './routes/conversas.$id'
@@ -45,11 +44,6 @@ const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
   path: '/configuracoes',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ColaboradoresRoute = ColaboradoresRouteImport.update({
-  id: '/colaboradores',
-  path: '/colaboradores',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AlertasRoute = AlertasRouteImport.update({
   id: '/alertas',
   path: '/alertas',
@@ -75,7 +69,6 @@ const ApiPublicWebhookRecvTokenRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/alertas': typeof AlertasRoute
-  '/colaboradores': typeof ColaboradoresRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/conversas': typeof ConversasRouteWithChildren
   '/dashboard': typeof DashboardRoute
@@ -87,7 +80,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/alertas': typeof AlertasRoute
-  '/colaboradores': typeof ColaboradoresRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/conversas': typeof ConversasRouteWithChildren
   '/dashboard': typeof DashboardRoute
@@ -100,7 +92,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/alertas': typeof AlertasRoute
-  '/colaboradores': typeof ColaboradoresRoute
   '/configuracoes': typeof ConfiguracoesRoute
   '/conversas': typeof ConversasRouteWithChildren
   '/dashboard': typeof DashboardRoute
@@ -114,7 +105,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/alertas'
-    | '/colaboradores'
     | '/configuracoes'
     | '/conversas'
     | '/dashboard'
@@ -126,7 +116,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/alertas'
-    | '/colaboradores'
     | '/configuracoes'
     | '/conversas'
     | '/dashboard'
@@ -138,7 +127,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/alertas'
-    | '/colaboradores'
     | '/configuracoes'
     | '/conversas'
     | '/dashboard'
@@ -151,7 +139,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AlertasRoute: typeof AlertasRoute
-  ColaboradoresRoute: typeof ColaboradoresRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
   ConversasRoute: typeof ConversasRouteWithChildren
   DashboardRoute: typeof DashboardRoute
@@ -195,13 +182,6 @@ declare module '@tanstack/react-router' {
       path: '/configuracoes'
       fullPath: '/configuracoes'
       preLoaderRoute: typeof ConfiguracoesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/colaboradores': {
-      id: '/colaboradores'
-      path: '/colaboradores'
-      fullPath: '/colaboradores'
-      preLoaderRoute: typeof ColaboradoresRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/alertas': {
@@ -250,7 +230,6 @@ const ConversasRouteWithChildren = ConversasRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AlertasRoute: AlertasRoute,
-  ColaboradoresRoute: ColaboradoresRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
   ConversasRoute: ConversasRouteWithChildren,
   DashboardRoute: DashboardRoute,
