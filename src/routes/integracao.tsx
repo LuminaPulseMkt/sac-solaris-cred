@@ -20,8 +20,17 @@ import {
   regenerateToken,
   deleteOperator,
   listWebhookLogs,
-  testWebhook,
 } from "@/lib/operators.functions";
+
+type TestResult = {
+  ok: boolean;
+  status: number;
+  elapsed_ms: number;
+  url: string;
+  sent_json: string;
+  received_text: string;
+  error: string;
+};
 import { deriveOperatorState, operatorStateMeta } from "@/lib/sac/operator-status";
 import { formatDateTime } from "@/lib/sac/format";
 
