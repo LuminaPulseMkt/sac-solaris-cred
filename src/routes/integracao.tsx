@@ -20,8 +20,17 @@ import {
   regenerateToken,
   deleteOperator,
   listWebhookLogs,
-  testWebhook,
 } from "@/lib/operators.functions";
+
+type TestResult = {
+  ok: boolean;
+  status: number;
+  elapsed_ms: number;
+  url: string;
+  sent_json: string;
+  received_text: string;
+  error: string;
+};
 import { deriveOperatorState, operatorStateMeta } from "@/lib/sac/operator-status";
 import { formatDateTime } from "@/lib/sac/format";
 
@@ -36,6 +45,53 @@ export const Route = createFileRoute("/integracao")({
 });
 
 type Operator = Awaited<ReturnType<typeof listOperators>>[number];
+
+async function runWebhookTest(op: Operator): Promise<TestResult> {
+  const url = `/api/public/webhook/recv/${op.token}`;
+  const samplePayload = {
+    event: "messages.upsert",
+    instance: op.instance_name,
+    data: {
+      key: {
+        remoteJid: "5511999990000@s.whatsapp.net",
+        fromMe: false,
+        id: `TEST_${Date.now()}`,
+      },
+      pushName: "Lead Teste",
+      message: { conversation: "Mensagem de teste do SAC" },
+      messageTimestamp: Math.floor(Date.now() / 1000),
+    },
+  };
+  const sent_json = JSON.stringify(samplePayload);
+  const t0 = Date.now();
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: sent_json,
+    });
+    const received_text = await res.text().catch(() => "");
+    return {
+      ok: res.ok,
+      status: res.status,
+      elapsed_ms: Date.now() - t0,
+      url,
+      sent_json,
+      received_text,
+      error: "",
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      status: 0,
+      elapsed_ms: Date.now() - t0,
+      url,
+      sent_json,
+      received_text: "",
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
 
 function IntegracaoPage() {
   const qc = useQueryClient();
@@ -114,8 +170,7 @@ function OperatorsList({
   const updateFn = useServerFn(updateOperator);
   const regenFn = useServerFn(regenerateToken);
   const deleteFn = useServerFn(deleteOperator);
-  const testFn = useServerFn(testWebhook);
-  const [testResult, setTestResult] = useState<Awaited<ReturnType<typeof testWebhook>> | null>(null);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
 
   if (loading) return <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">Carregando…</div>;
   if (operators.length === 0) {
@@ -181,7 +236,7 @@ function OperatorsList({
                         variant="ghost"
                         title="Testar"
                         onClick={async () => {
-                          const res = await testFn({ data: { id: op.id } });
+                          const res = await runWebhookTest(op);
                           setTestResult(res);
                           onChange();
                         }}
