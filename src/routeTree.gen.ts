@@ -17,6 +17,7 @@ import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as ColaboradoresRouteImport } from './routes/colaboradores'
 import { Route as AlertasRouteImport } from './routes/alertas'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicWebhookRecvTokenRouteImport } from './routes/api/public/webhook/recv/$token'
 
 const RelatoriosRoute = RelatoriosRouteImport.update({
   id: '/relatorios',
@@ -58,6 +59,12 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicWebhookRecvTokenRoute =
+  ApiPublicWebhookRecvTokenRouteImport.update({
+    id: '/api/public/webhook/recv/$token',
+    path: '/api/public/webhook/recv/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/integracao': typeof IntegracaoRoute
   '/relatorios': typeof RelatoriosRoute
+  '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +86,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/integracao': typeof IntegracaoRoute
   '/relatorios': typeof RelatoriosRoute
+  '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +98,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/integracao': typeof IntegracaoRoute
   '/relatorios': typeof RelatoriosRoute
+  '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +111,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/integracao'
     | '/relatorios'
+    | '/api/public/webhook/recv/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +122,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/integracao'
     | '/relatorios'
+    | '/api/public/webhook/recv/$token'
   id:
     | '__root__'
     | '/'
@@ -121,6 +133,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/integracao'
     | '/relatorios'
+    | '/api/public/webhook/recv/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,6 +145,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   IntegracaoRoute: typeof IntegracaoRoute
   RelatoriosRoute: typeof RelatoriosRoute
+  ApiPublicWebhookRecvTokenRoute: typeof ApiPublicWebhookRecvTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -192,6 +206,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/webhook/recv/$token': {
+      id: '/api/public/webhook/recv/$token'
+      path: '/api/public/webhook/recv/$token'
+      fullPath: '/api/public/webhook/recv/$token'
+      preLoaderRoute: typeof ApiPublicWebhookRecvTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -204,7 +225,18 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   IntegracaoRoute: IntegracaoRoute,
   RelatoriosRoute: RelatoriosRoute,
+  ApiPublicWebhookRecvTokenRoute: ApiPublicWebhookRecvTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
