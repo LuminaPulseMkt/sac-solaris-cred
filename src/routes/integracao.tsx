@@ -46,6 +46,53 @@ export const Route = createFileRoute("/integracao")({
 
 type Operator = Awaited<ReturnType<typeof listOperators>>[number];
 
+async function runWebhookTest(op: Operator): Promise<TestResult> {
+  const url = `/api/public/webhook/recv/${op.token}`;
+  const samplePayload = {
+    event: "messages.upsert",
+    instance: op.instance_name,
+    data: {
+      key: {
+        remoteJid: "5511999990000@s.whatsapp.net",
+        fromMe: false,
+        id: `TEST_${Date.now()}`,
+      },
+      pushName: "Lead Teste",
+      message: { conversation: "Mensagem de teste do SAC" },
+      messageTimestamp: Math.floor(Date.now() / 1000),
+    },
+  };
+  const sent_json = JSON.stringify(samplePayload);
+  const t0 = Date.now();
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: sent_json,
+    });
+    const received_text = await res.text().catch(() => "");
+    return {
+      ok: res.ok,
+      status: res.status,
+      elapsed_ms: Date.now() - t0,
+      url,
+      sent_json,
+      received_text,
+      error: "",
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      status: 0,
+      elapsed_ms: Date.now() - t0,
+      url,
+      sent_json,
+      received_text: "",
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
 function IntegracaoPage() {
   const qc = useQueryClient();
   const listFn = useServerFn(listOperators);
