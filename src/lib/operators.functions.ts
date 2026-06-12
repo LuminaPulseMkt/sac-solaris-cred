@@ -149,7 +149,7 @@ export const testWebhook = createServerFn({ method: "POST" })
 
     const t0 = Date.now();
     let status = 0;
-    let body: unknown = null;
+    let body: Record<string, unknown> | null = null;
     try {
       const res = await fetch(url, {
         method: "POST",
