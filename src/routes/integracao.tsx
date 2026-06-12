@@ -11,6 +11,16 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Copy, RefreshCw, Trash2, Webhook, FlaskConical, Eye } from "lucide-react";
 import {
@@ -38,7 +48,7 @@ export const Route = createFileRoute("/integracao")({
   head: () => ({
     meta: [
       { title: "Integração Evolution API — SAC" },
-      { name: "description", content: "Cadastre operadores monitorados e receba mensagens da Evolution API em paralelo ao n8n." },
+      { name: "description", content: "Cadastre operadores e receba mensagens da Evolution API em paralelo ao n8n." },
     ],
   }),
   component: IntegracaoPage,
@@ -118,7 +128,7 @@ function IntegracaoPage() {
       <main className="flex-1 p-4 md:p-6">
         <Tabs value={tab} onValueChange={setTab} className="space-y-4">
           <TabsList>
-            <TabsTrigger value="list">Operadores monitorados</TabsTrigger>
+            <TabsTrigger value="list">Operadores</TabsTrigger>
             <TabsTrigger value="new">Cadastrar operador</TabsTrigger>
             <TabsTrigger value="logs">Logs de recebimento</TabsTrigger>
           </TabsList>
@@ -171,14 +181,28 @@ function OperatorsList({
   const regenFn = useServerFn(regenerateToken);
   const deleteFn = useServerFn(deleteOperator);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [toDelete, setToDelete] = useState<Operator | null>(null);
+
+  async function confirmDelete() {
+    if (!toDelete) return;
+    try {
+      await deleteFn({ data: { id: toDelete.id } });
+      toast.success("Operador excluído");
+      onChange();
+    } catch {
+      toast.error("Erro ao excluir. Tente novamente.");
+    } finally {
+      setToDelete(null);
+    }
+  }
 
   if (loading) return <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">Carregando…</div>;
   if (operators.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center">
         <Webhook className="mx-auto mb-2 h-6 w-6 text-muted-foreground" />
-        <p className="text-sm font-medium">Nenhum operador cadastrado ainda</p>
-        <p className="mt-1 text-xs text-muted-foreground">Vá em "Cadastrar operador" para gerar o primeiro webhook.</p>
+        <p className="text-sm font-medium">Nenhum operador cadastrado.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Clique em "+ Novo operador" para começar.</p>
       </div>
     );
   }
@@ -272,14 +296,10 @@ function OperatorsList({
                         size="sm"
                         variant="ghost"
                         title="Excluir"
-                        onClick={async () => {
-                          if (!confirm(`Excluir operador "${op.name}"?`)) return;
-                          await deleteFn({ data: { id: op.id } });
-                          toast.success("Operador excluído");
-                          onChange();
-                        }}
+                        className="text-danger hover:bg-danger/10 hover:text-danger"
+                        onClick={() => setToDelete(op)}
                       >
-                        <Trash2 className="h-3.5 w-3.5 text-danger" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </TableCell>
@@ -314,6 +334,23 @@ function OperatorsList({
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir o operador {toDelete?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todas as conversas e mensagens vinculadas serão excluídas permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-danger text-white hover:bg-danger/90">
+              Excluir permanentemente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
