@@ -48,7 +48,7 @@ export const Route = createFileRoute("/integracao")({
   head: () => ({
     meta: [
       { title: "Integração Evolution API — SAC" },
-      { name: "description", content: "Cadastre operadores monitorados e receba mensagens da Evolution API em paralelo ao n8n." },
+      { name: "description", content: "Cadastre operadores e receba mensagens da Evolution API em paralelo ao n8n." },
     ],
   }),
   component: IntegracaoPage,
@@ -128,7 +128,7 @@ function IntegracaoPage() {
       <main className="flex-1 p-4 md:p-6">
         <Tabs value={tab} onValueChange={setTab} className="space-y-4">
           <TabsList>
-            <TabsTrigger value="list">Operadores monitorados</TabsTrigger>
+            <TabsTrigger value="list">Operadores</TabsTrigger>
             <TabsTrigger value="new">Cadastrar operador</TabsTrigger>
             <TabsTrigger value="logs">Logs de recebimento</TabsTrigger>
           </TabsList>

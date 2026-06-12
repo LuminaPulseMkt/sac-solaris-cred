@@ -26,7 +26,7 @@ export const Route = createFileRoute("/operadores")({
   head: () => ({
     meta: [
       { title: "Operadores — SAC" },
-      { name: "description", content: "Desempenho individual, ranking e métricas de cada operador monitorado." },
+      { name: "description", content: "Desempenho individual, ranking e métricas de cada operador." },
     ],
   }),
   component: OperadoresPage,
