@@ -149,7 +149,7 @@ export const testWebhook = createServerFn({ method: "POST" })
 
     const t0 = Date.now();
     let status = 0;
-    let body: Record<string, unknown> | null = null;
+    let body = "";
     try {
       const res = await fetch(url, {
         method: "POST",
@@ -157,15 +157,15 @@ export const testWebhook = createServerFn({ method: "POST" })
         body: JSON.stringify(samplePayload),
       });
       status = res.status;
-      body = await res.json().catch(() => null);
+      body = await res.text().catch(() => "");
     } catch (e) {
       return {
         ok: false,
         status: 0,
         elapsed_ms: Date.now() - t0,
         url,
-        sent: samplePayload,
-        received: null,
+        sent_json: JSON.stringify(samplePayload),
+        received_text: "",
         error: e instanceof Error ? e.message : String(e),
       };
     }
@@ -174,7 +174,8 @@ export const testWebhook = createServerFn({ method: "POST" })
       status,
       elapsed_ms: Date.now() - t0,
       url,
-      sent: samplePayload,
-      received: body,
+      sent_json: JSON.stringify(samplePayload),
+      received_text: body,
+      error: "",
     };
   });
