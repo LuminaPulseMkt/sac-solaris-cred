@@ -17,6 +17,8 @@ import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as ColaboradoresRouteImport } from './routes/colaboradores'
 import { Route as AlertasRouteImport } from './routes/alertas'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ConversasIdRouteImport } from './routes/conversas.$id'
+import { Route as ApiPublicWebhookRecvTokenRouteImport } from './routes/api/public/webhook/recv/$token'
 
 const RelatoriosRoute = RelatoriosRouteImport.update({
   id: '/relatorios',
@@ -58,26 +60,41 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConversasIdRoute = ConversasIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ConversasRoute,
+} as any)
+const ApiPublicWebhookRecvTokenRoute =
+  ApiPublicWebhookRecvTokenRouteImport.update({
+    id: '/api/public/webhook/recv/$token',
+    path: '/api/public/webhook/recv/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/alertas': typeof AlertasRoute
   '/colaboradores': typeof ColaboradoresRoute
   '/configuracoes': typeof ConfiguracoesRoute
-  '/conversas': typeof ConversasRoute
+  '/conversas': typeof ConversasRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/integracao': typeof IntegracaoRoute
   '/relatorios': typeof RelatoriosRoute
+  '/conversas/$id': typeof ConversasIdRoute
+  '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/alertas': typeof AlertasRoute
   '/colaboradores': typeof ColaboradoresRoute
   '/configuracoes': typeof ConfiguracoesRoute
-  '/conversas': typeof ConversasRoute
+  '/conversas': typeof ConversasRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/integracao': typeof IntegracaoRoute
   '/relatorios': typeof RelatoriosRoute
+  '/conversas/$id': typeof ConversasIdRoute
+  '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -85,10 +102,12 @@ export interface FileRoutesById {
   '/alertas': typeof AlertasRoute
   '/colaboradores': typeof ColaboradoresRoute
   '/configuracoes': typeof ConfiguracoesRoute
-  '/conversas': typeof ConversasRoute
+  '/conversas': typeof ConversasRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/integracao': typeof IntegracaoRoute
   '/relatorios': typeof RelatoriosRoute
+  '/conversas/$id': typeof ConversasIdRoute
+  '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +120,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/integracao'
     | '/relatorios'
+    | '/conversas/$id'
+    | '/api/public/webhook/recv/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +132,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/integracao'
     | '/relatorios'
+    | '/conversas/$id'
+    | '/api/public/webhook/recv/$token'
   id:
     | '__root__'
     | '/'
@@ -121,6 +144,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/integracao'
     | '/relatorios'
+    | '/conversas/$id'
+    | '/api/public/webhook/recv/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -128,10 +153,11 @@ export interface RootRouteChildren {
   AlertasRoute: typeof AlertasRoute
   ColaboradoresRoute: typeof ColaboradoresRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
-  ConversasRoute: typeof ConversasRoute
+  ConversasRoute: typeof ConversasRouteWithChildren
   DashboardRoute: typeof DashboardRoute
   IntegracaoRoute: typeof IntegracaoRoute
   RelatoriosRoute: typeof RelatoriosRoute
+  ApiPublicWebhookRecvTokenRoute: typeof ApiPublicWebhookRecvTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -192,18 +218,45 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/conversas/$id': {
+      id: '/conversas/$id'
+      path: '/$id'
+      fullPath: '/conversas/$id'
+      preLoaderRoute: typeof ConversasIdRouteImport
+      parentRoute: typeof ConversasRoute
+    }
+    '/api/public/webhook/recv/$token': {
+      id: '/api/public/webhook/recv/$token'
+      path: '/api/public/webhook/recv/$token'
+      fullPath: '/api/public/webhook/recv/$token'
+      preLoaderRoute: typeof ApiPublicWebhookRecvTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
+
+interface ConversasRouteChildren {
+  ConversasIdRoute: typeof ConversasIdRoute
+}
+
+const ConversasRouteChildren: ConversasRouteChildren = {
+  ConversasIdRoute: ConversasIdRoute,
+}
+
+const ConversasRouteWithChildren = ConversasRoute._addFileChildren(
+  ConversasRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AlertasRoute: AlertasRoute,
   ColaboradoresRoute: ColaboradoresRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
-  ConversasRoute: ConversasRoute,
+  ConversasRoute: ConversasRouteWithChildren,
   DashboardRoute: DashboardRoute,
   IntegracaoRoute: IntegracaoRoute,
   RelatoriosRoute: RelatoriosRoute,
+  ApiPublicWebhookRecvTokenRoute: ApiPublicWebhookRecvTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
