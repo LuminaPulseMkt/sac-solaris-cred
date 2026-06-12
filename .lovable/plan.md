@@ -1,84 +1,31 @@
-## Integração Evolution API → SAC (paralelo ao n8n)
+## Problema
 
-Implementar recebimento direto da Evolution API no SAC via webhook próprio por operador, sem tocar no n8n. Substitui a tela mockada `/integracao` atual por uma gestão real de operadores monitorados, persistindo conversas/mensagens em Supabase com Realtime.
+Hoje o botão "Testar webhook" chama o server function `testWebhook`, que monta a URL absoluta do webhook (`https://.../api/public/webhook/recv/:token`) e faz `fetch` a partir do runtime do servidor. No preview do Lovable, essa chamada sai como tráfego externo e bate em uma proteção da borda (Cloudflare), retornando "error code: 1003".
 
----
+## Correção
 
-### 1. Banco (migração Supabase)
+Mover o disparo do teste para o **navegador**, usando uma URL **relativa** (`/api/public/webhook/recv/${token}`). Assim a requisição fica na mesma origem do preview/produção e não passa por roteamento externo.
 
-Criar tabelas no schema `public` (com GRANTs + RLS):
-- **`operators`** — `id`, `name`, `instance_name`, `channel`, `description`, `token` (uuid sem hífens, único), `webhook_url`, `status` (pending/active/inactive/error), `last_received_at`, `messages_today`, timestamps.
-- **`conversations`** — vinculada a `operators`, com `remote_jid`, `lead_phone`, `lead_name`, `instance_name`, `status`, `converted`, `score_sac`, `avg_response_time_s`, `total_messages`, unique(`operator_id`,`remote_jid`).
-- **`messages`** — vinculada à conversa/operador, com `from_role`, `message_text`, `message_type`, `sent_at`, `response_time_s`, `lead_name`, `lead_phone`, `raw_payload jsonb`.
-- **`webhook_logs`** — auditoria dos POSTs recebidos.
+### Mudanças
 
-GRANTs: `service_role` total em todas (o endpoint público escreve via admin client). `authenticated` com SELECT/INSERT/UPDATE/DELETE em `operators`, e SELECT em `conversations`/`messages`/`webhook_logs` para o painel.
+1. `src/routes/integracao.tsx`
+   - No handler do botão "Testar webhook", em vez de chamar o server function `testWebhook`, fazer direto no cliente:
+     - Montar `const url = \`/api/public/webhook/recv/${operator.token}\``
+     - `fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(samplePayload) })`
+     - Medir `elapsed_ms`, capturar `status` e `await res.text()`
+     - Alimentar o mesmo dialog/toast de resultado que já existe (status, tempo, payload enviado, resposta recebida)
+   - O `samplePayload` (mesmo formato atual: `event: "messages.upsert"`, `instance`, `data.key`, `pushName`, `message.conversation`, `messageTimestamp`) passa a ser montado no cliente a partir do operador selecionado.
 
-RLS habilitada em todas. Como ainda não há auth no app, políticas iniciais permissivas para `authenticated` (refinar depois). O endpoint público usa service role e bypassa RLS.
+2. `src/lib/operators.functions.ts`
+   - Remover (ou deixar de exportar/usar) o server function `testWebhook`, já que o teste deixa de existir no servidor. As demais funções (`listOperators`, `createOperator`, `updateOperator`, `regenerateToken`, `deleteOperator`, `listWebhookLogs`) permanecem inalteradas, incluindo o `buildWebhookUrl` usado na criação e regeneração de token.
 
-Função `public.has_role` não é necessária nesta fase. Realtime ligado em `messages` e `conversations`.
+### Por que funciona
 
-### 2. Endpoint público `POST /api/public/webhook/recv/$token`
+- URL relativa → o navegador resolve para o mesmo host do preview/produção → a requisição cai no próprio handler `src/routes/api/public/webhook/recv/$token.ts`, sem sair pela borda externa.
+- Mesma rota é exercitada de verdade (insere `webhook_logs`, atualiza `conversations`/`messages`), então o teste continua sendo um teste ponta a ponta.
+- Em produção o comportamento é idêntico, já que continua sendo same-origin.
 
-Arquivo: `src/routes/api/public/webhook/recv/$token.ts` (server route).
-- Carrega `supabaseAdmin` dentro do handler.
-- Valida token + `instance` cruzados em `operators`.
-- Ignora silenciosamente eventos ≠ `messages.upsert` e mensagens de grupo (`@g.us`).
-- Extrai campos conforme tabela de mapeamento do spec, detecta `message_type`.
-- Upsert em `conversations` (onConflict `operator_id,remote_jid`).
-- Calcula `response_time_s` (delta da última msg do lado oposto).
-- Insert em `messages`. Atualiza `last_received_at`/`messages_today` em `operators`. Grava em `webhook_logs`.
-- Limites: payload ≤ 2MB, rate-limit fica fora do MVP (Workers não tem primitiva — adicionar nota).
-- Retorna `{ received: true, conversation_id, response_time_s }`.
+### Fora do escopo
 
-### 3. Server functions (`src/lib/operators.functions.ts`)
-
-Sem auth nesta fase (operações públicas no MVP — alinhado ao app atual sem login):
-- `listOperators`, `createOperator` (gera token, monta `webhook_url` com `VITE_PUBLIC_APP_URL` ou origem da request), `updateOperator`, `regenerateToken`, `deactivateOperator`.
-- `listWebhookLogs(operatorId?)`.
-- `testWebhook(operatorId)` — faz fetch interno ao próprio endpoint com payload simulado e retorna status/tempo.
-
-### 4. Tela `/integracao` reformulada
-
-Três abas (Tabs do shadcn):
-- **Operadores monitorados** — tabela com avatar+nome, instância, badge de status colorido, última mensagem, mensagens hoje, ações (copiar URL, testar, ver logs, editar, ativar/desativar, regenerar token).
-- **Cadastrar operador** — formulário (nome, instância, canal, descrição, status). Ao salvar, exibe card com URL gerada + botões Copiar/Testar + instruções inline (painel Evolution e curl).
-- **Logs** — tabela de `webhook_logs` com modal de payload bruto.
-
-Componente de estado visual do operador conforme tabela do spec (Aguardando/Ativo/Sem dados 48h/Erro/Inativo).
-
-### 5. Tela `/conversas/:id` — visualização em chat
-
-Atualizar (ou criar) rota dinâmica usando dados do Supabase:
-- Cabeçalho com lead, telefone, instância, operador, score SAC, duração.
-- Bolhas: operador à direita (âmbar claro), lead à esquerda (cinza). Hora em cada mensagem.
-- Badge de tempo de resposta entre pares (verde ≤2min, âmbar 2–5min, vermelho >5min).
-- Ícone por `message_type ≠ 'text'`.
-- Realtime: assina `messages` filtrado por `conversation_id` dentro de `useEffect` com cleanup.
-
-### 6. Score SAC
-
-`src/lib/sac/score.ts` — adicionar/ajustar `calcularScoreSAC(conversation)` conforme fórmula 40/35/25 do spec. Recalcular ao inserir mensagem (server route) e gravar em `conversations.score_sac` + `avg_response_time_s`.
-
-### 7. Dashboard
-
-Substituir mocks por leitura real (server fn → Supabase) das tabelas novas, mantendo o layout atual. Realtime opcional no `/dashboard` para `last_received_at` dos operadores.
-
----
-
-### Detalhes técnicos
-
-- **Stack**: TanStack Start + Supabase já conectado. Endpoint público sob `/api/public/*` (bypassa auth do site publicado).
-- **Service role**: `supabaseAdmin` importado dentro do handler do server route (regra do import graph).
-- **Realtime**: `ALTER PUBLICATION supabase_realtime ADD TABLE …` na migração.
-- **URL do webhook**: derivada do header `Host` da request no momento do cadastro, ou env `VITE_PUBLIC_APP_URL`. URL estável do Lovable: `project--0e69e672-f73b-4ea1-9583-6e2b8f56fa37.lovable.app`.
-- **Segurança**: token uuid v4 sem hífens; validação cruzada token+instance; log de tentativas inválidas; `@g.us` ignorado; eventos ≠ `messages.upsert` retornam 200 silencioso.
-- **Sem auth ainda**: o app não tem login. As server fns de gestão ficam públicas no MVP. Recomendo habilitar Supabase Auth + gate `_authenticated/` numa etapa seguinte — fora do escopo deste plano.
-- **Mocks descontinuados**: `src/mocks/webhook-config.ts` deixa de ser usado pela `/integracao` (mantido para não quebrar outros imports até remoção final).
-
-### Fora de escopo deste plano
-
-- Autenticação de usuários do painel.
-- Rate-limit verdadeiro (Workers sem KV/Durable Objects configurados).
-- Edição/envio de mensagens de volta para o WhatsApp.
-- Migração das tabelas legadas (`n8n_chat_histories`, `n8n_historico_mensagens`, `secretaria`) — ficam intactas.
+- Não alterar o handler do webhook (`$token.ts`), nem RLS, nem schema.
+- Não mexer em outras telas/funcionalidades.
