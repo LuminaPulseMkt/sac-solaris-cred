@@ -189,7 +189,7 @@ function OperatorsList({
                         variant="ghost"
                         title="Testar"
                         onClick={async () => {
-                          const res = await testFn({ data: { id: op.id } });
+                          const res = await runWebhookTest(op);
                           setTestResult(res);
                           onChange();
                         }}
