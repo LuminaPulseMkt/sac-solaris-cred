@@ -32,7 +32,7 @@ function createSupabaseAdminClient() {
 let _supabaseAdmin: ReturnType<typeof createSupabaseAdminClient> | undefined;
 let _supabaseAdminCacheKey: string | undefined;
 
-// Server-side Supabase client. It bypasses RLS only when SUPABASE_SERVICE_ROLE_KEY is injected.
+// Server-side Supabase client. Requires SUPABASE_SERVICE_ROLE_KEY and bypasses RLS.
 // SECURITY: Only use this from server-side operations, never expose to client code.
 // Load inside server handlers: const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 // Top-level import is safe only in other .server.ts modules - route files and *.functions.ts ship to the client bundle.
