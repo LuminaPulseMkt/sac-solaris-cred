@@ -1,5 +1,6 @@
 import "./lib/error-capture";
 
+import process from "node:process";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
@@ -8,6 +9,25 @@ type ServerEntry = {
 };
 
 let serverEntryPromise: Promise<ServerEntry> | undefined;
+
+const SERVER_ENV_KEYS = [
+  "SUPABASE_URL",
+  "SUPABASE_PUBLISHABLE_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "SUPABASE_PROJECT_ID",
+  "PUBLIC_APP_URL",
+] as const;
+
+function applyRuntimeEnv(env: unknown) {
+  if (!env || typeof env !== "object") return;
+  const runtimeEnv = env as Record<string, unknown>;
+  for (const key of SERVER_ENV_KEYS) {
+    const value = runtimeEnv[key];
+    if (typeof value === "string" && value.length > 0) {
+      process.env[key] = value;
+    }
+  }
+}
 
 async function getServerEntry(): Promise<ServerEntry> {
   if (!serverEntryPromise) {
@@ -40,6 +60,7 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      applyRuntimeEnv(env);
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
