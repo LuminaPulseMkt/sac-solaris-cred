@@ -2,20 +2,53 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getRequestHost } from "@tanstack/react-start/server";
 
-function buildWebhookUrl(token: string): string {
-  const envBase = process.env.PUBLIC_APP_URL;
-  let base = envBase;
-  if (!base) {
-    try {
-      const host = getRequestHost();
-      const proto = host?.includes("localhost") ? "http" : "https";
-      base = host ? `${proto}://${host}` : "";
-    } catch {
-      base = "";
+function getPublicAppUrl(): string {
+  const envBase =
+    process.env.VITE_PUBLIC_APP_URL ||
+    process.env.PUBLIC_APP_URL ||
+    "";
+  if (envBase) return envBase.replace(/\/+$/, "");
+  try {
+    const host = getRequestHost();
+    if (host && !host.includes("localhost")) {
+      return `https://${host}`;
     }
+  } catch {
+    // ignore
   }
+  return "";
+}
+
+function buildWebhookUrl(token: string): string {
+  const base = getPublicAppUrl();
   return `${base}/api/public/webhook/recv/${token}`;
 }
+
+export const fixWebhookUrls = createServerFn({ method: "POST" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const base = getPublicAppUrl();
+  if (!base) return { updated: 0 };
+  const { data: ops, error } = await supabaseAdmin
+    .from("operators")
+    .select("id, token, webhook_url");
+  if (error) throw new Error(error.message);
+  let updated = 0;
+  for (const op of ops ?? []) {
+    const expected = `${base}/api/public/webhook/recv/${op.token}`;
+    const current = op.webhook_url ?? "";
+    const needsFix =
+      !current ||
+      current.includes("localhost") ||
+      current.includes("127.0.0.1") ||
+      current.startsWith("/") ||
+      current !== expected;
+    if (needsFix) {
+      await supabaseAdmin.from("operators").update({ webhook_url: expected }).eq("id", op.id);
+      updated++;
+    }
+  }
+  return { updated };
+});
 
 export const listOperators = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
