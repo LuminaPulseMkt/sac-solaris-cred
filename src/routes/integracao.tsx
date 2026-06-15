@@ -30,6 +30,7 @@ import {
   regenerateToken,
   deleteOperator,
   listWebhookLogs,
+  fixWebhookUrls,
 } from "@/lib/operators.functions";
 
 type TestResult = {
@@ -107,9 +108,20 @@ function IntegracaoPage() {
   const qc = useQueryClient();
   const listFn = useServerFn(listOperators);
   const logsFn = useServerFn(listWebhookLogs);
+  const fixFn = useServerFn(fixWebhookUrls);
 
   const operators = useQuery({ queryKey: ["operators"], queryFn: () => listFn() });
   const logs = useQuery({ queryKey: ["webhook-logs"], queryFn: () => logsFn({ data: {} }) });
+
+  useEffect(() => {
+    fixFn()
+      .then((res) => {
+        if (res?.updated && res.updated > 0) {
+          qc.invalidateQueries({ queryKey: ["operators"] });
+        }
+      })
+      .catch(() => {});
+  }, [fixFn, qc]);
 
   const [tab, setTab] = useState("list");
   const [selectedPayload, setSelectedPayload] = useState<unknown>(null);
