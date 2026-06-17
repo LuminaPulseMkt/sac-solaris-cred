@@ -77,8 +77,8 @@ function DashboardPage() {
   const listFn = useServerFn(listConversations);
   const statsFn = useServerFn(listOperatorStats);
 
-  const { data: rows = [] } = useQuery({ queryKey: ["conversations"], queryFn: () => listFn() });
-  const { data: opStats = [] } = useQuery({ queryKey: ["operator-stats"], queryFn: () => statsFn() });
+  const { data: rows = [] } = useQuery({ queryKey: ["conversations"], queryFn: () => listFn(), refetchInterval: 30_000 });
+  const { data: opStats = [] } = useQuery({ queryKey: ["operator-stats"], queryFn: () => statsFn(), refetchInterval: 30_000 });
 
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const kpis = useMemo(() => {

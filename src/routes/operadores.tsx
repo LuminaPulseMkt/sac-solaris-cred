@@ -36,7 +36,7 @@ function OperadoresPage() {
   const qc = useQueryClient();
   const listFn = useServerFn(listOperatorStats);
   const deleteFn = useServerFn(deleteOperator);
-  const { data: stats = [], isLoading } = useQuery({ queryKey: ["operator-stats"], queryFn: () => listFn() });
+  const { data: stats = [], isLoading } = useQuery({ queryKey: ["operator-stats"], queryFn: () => listFn(), refetchInterval: 30_000 });
   const [toDelete, setToDelete] = useState<{ id: string; name: string } | null>(null);
 
   async function confirmDelete() {
