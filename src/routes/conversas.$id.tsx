@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Image as ImageIcon, Mic, FileText, MapPin, Sticker, Video } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
@@ -56,12 +56,12 @@ async function fetchMessages(conversationId: string): Promise<Message[]> {
 }
 
 const typeIcon: Record<string, React.ReactNode> = {
-  image: <ImageIcon className="h-3.5 w-3.5" />,
-  audio: <Mic className="h-3.5 w-3.5" />,
-  document: <FileText className="h-3.5 w-3.5" />,
-  sticker: <Sticker className="h-3.5 w-3.5" />,
-  video: <Video className="h-3.5 w-3.5" />,
-  location: <MapPin className="h-3.5 w-3.5" />,
+  image: <ImageIcon size={14} />,
+  audio: <Mic size={14} />,
+  document: <FileText size={14} />,
+  sticker: <Sticker size={14} />,
+  video: <Video size={14} />,
+  location: <MapPin size={14} />,
 };
 
 function rtTone(seconds: number): string {
@@ -74,41 +74,49 @@ function rtTone(seconds: number): string {
 function ConversationChatPage() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
+  const bottomRef = useRef<HTMLDivElement>(null);
+
   const conv = useQuery({
     queryKey: ["conversation", id],
     queryFn: () => fetchConversation(id),
-    refetchInterval: 10_000,
+    refetchInterval: 8_000,
   });
-  const [messages, setMessages] = useState<Message[]>([]);
-  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const msgsQuery = useQuery({
+    queryKey: ["messages", id],
+    queryFn: () => fetchMessages(id),
+    refetchInterval: 5_000,
+    placeholderData: (prev) => prev,
+  });
+
+  const messages = msgsQuery.data ?? [];
 
   useEffect(() => {
-    let cancelled = false;
-    fetchMessages(id).then((m) => { if (!cancelled) setMessages(m); });
     const channel = supabase
-      .channel(`sac-conv-${id}`)
+      .channel(`sac-msgs-${id}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages" },
-        (payload) => {
-          const newMsg = payload.new as Message;
-          if (newMsg.conversation_id !== id) return;
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === newMsg.id)) return prev;
-            return [...prev, newMsg];
-          });
+        () => {
+          qc.invalidateQueries({ queryKey: ["messages", id] });
           qc.invalidateQueries({ queryKey: ["conversation", id] });
         }
       )
-      .subscribe();
-    return () => {
-      cancelled = true;
-      supabase.removeChannel(channel);
-    };
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR") {
+          console.warn("[Realtime] Canal de mensagens com erro — usando polling");
+        }
+      });
+
+    return () => { supabase.removeChannel(channel); };
   }, [id, qc]);
 
+  const prevLengthRef = useRef(0);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length > prevLengthRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+    prevLengthRef.current = messages.length;
   }, [messages.length]);
 
   const conversation = conv.data;
@@ -122,72 +130,90 @@ function ConversationChatPage() {
   return (
     <>
       <AppHeader
-        title={conversation?.lead_name ?? "Conversa"}
-        subtitle={conversation ? `${conversation.lead_phone} · ${conversation.instance_name}` : ""}
-        actions={
-          <Link to="/conversas" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-3.5 w-3.5" /> Voltar
+        left={
+          <Link
+            to="/conversas"
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft size={16} />
+            Voltar
           </Link>
         }
       />
-      <main className="flex-1 space-y-3 p-4 md:p-6">
+      <div className="p-6 max-w-4xl mx-auto space-y-6">
         {conversation && (
-          <section className="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-4">
-            <Stat label="Score SAC" value={<ScoreBar score={conversation.score_sac ?? 0} />} />
-            <Stat label="Tempo médio" value={<span className="text-sm">{conversation.avg_response_time_s ? formatDuration(conversation.avg_response_time_s) : "—"}</span>} />
-            <Stat label="Mensagens" value={<span className="text-sm tabular-nums">{conversation.total_messages}</span>} />
-            <Stat label="Iniciada" value={<span className="text-xs">{formatDateTime(conversation.started_at)} · {durationLabel}</span>} />
-          </section>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Stat label="Score SAC" value={<ScoreBar score={conversation.score_sac ?? 0} size="sm" />} />
+            <Stat label="Tempo médio resposta" value={conversation.avg_response_time_s ? formatDuration(conversation.avg_response_time_s) : "—"} />
+            <Stat label="Total mensagens" value={conversation.total_messages} />
+            <Stat label="Início" value={`${formatDateTime(conversation.started_at)} · ${durationLabel}`} />
+          </div>
         )}
 
-        <section className="rounded-lg border border-border bg-card p-4">
-          {messages.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma mensagem ainda.</p>
-          ) : (
-            <ul className="space-y-2">
-              {messages.map((m, i) => {
-                const isOp = m.from_role === "operator";
-                const prev = messages[i - 1];
-                const showRt = m.response_time_s != null && prev && prev.from_role !== m.from_role;
-                return (
-                  <li key={m.id}>
-                    {showRt && (
-                      <div className="my-2 flex justify-center">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] ${rtTone(m.response_time_s!)}`}>
-                          ⏱ Resposta em {formatDuration(m.response_time_s!)}
-                        </span>
-                      </div>
-                    )}
-                    <div className={`flex ${isOp ? "justify-end" : "justify-start"}`}>
+        <div className="rounded-xl border bg-card shadow-sm">
+          <div className="p-4 border-b">
+            <h2 className="font-semibold">Mensagens</h2>
+          </div>
+          <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+            {messages.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                Nenhuma mensagem ainda.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {messages.map((m, i) => {
+                  const isOp = m.from_role === "operator";
+                  const prev = messages[i - 1];
+                  const showRt = m.response_time_s != null && prev && prev.from_role !== m.from_role;
+                  return (
+                    <div
+                      key={m.id}
+                      className={`flex flex-col ${isOp ? "items-end" : "items-start"}`}
+                    >
+                      {showRt && (
+                        <div className={`mb-1 inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${rtTone(m.response_time_s!)}`}>
+                          <span className="inline-block">
+                            ⏱ Resposta em {formatDuration(m.response_time_s!)}
+                          </span>
+                        </div>
+                      )}
                       <div
-                        className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
-                          isOp ? "bg-brand/15 text-foreground" : "bg-surface text-foreground"
+                        className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
+                          isOp
+                            ? "bg-primary text-primary-foreground rounded-br-none"
+                            : "bg-muted rounded-bl-none"
                         }`}
                       >
                         <div className="flex items-center gap-1.5">
                           {m.message_type !== "text" && typeIcon[m.message_type]}
-                          <span className="whitespace-pre-wrap break-words">{m.message_text}</span>
+                          <span>{m.message_text}</span>
                         </div>
-                        <div className="mt-1 text-[10px] text-muted-foreground">{formatTime(m.sent_at)}</div>
+                        <div className={`text-[10px] mt-1 opacity-70 ${isOp ? "text-right" : "text-left"}`}>
+                          {formatTime(m.sent_at)}
+                        </div>
                       </div>
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <div ref={bottomRef} />
-        </section>
-      </main>
+                  );
+                })}
+                <div ref={bottomRef} />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </>
   );
 }
 
 function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div>
-      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1">{value}</div>
+    <div className="rounded-xl border bg-card p-4 shadow-sm">
+      <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+        {label}
+      </div>
+      <div className="text-sm font-semibold">
+        {value}
+      </div>
     </div>
   );
 }
