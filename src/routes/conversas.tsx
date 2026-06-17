@@ -45,7 +45,27 @@ function ConversasPage() {
   const deleteOneFn = useServerFn(deleteConversation);
   const deleteManyFn = useServerFn(deleteConversations);
 
-  const { data: rows = [], isLoading } = useQuery({ queryKey: ["conversations"], queryFn: () => listFn() });
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["conversations"],
+    queryFn: () => listFn(),
+    refetchInterval: 15_000,
+  });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("conversations-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "conversations" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["conversations"] });
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
