@@ -41,7 +41,15 @@ function RelatoriosPage() {
   const { data: convs = [] } = useQuery({ queryKey: ["conversations"], queryFn: () => convsFn(), refetchInterval: 30_000 });
   const { data: stats = [] } = useQuery({ queryKey: ["operator-stats"], queryFn: () => statsFn(), refetchInterval: 30_000 });
 
-  const filtered = convs.filter((c) => operator === "all" || c.operator_id === operator);
+  const filtered = convs.filter((c) => {
+    const cutoff = new Date();
+    if (period === "24h") cutoff.setHours(cutoff.getHours() - 24);
+    else if (period === "7d") cutoff.setDate(cutoff.getDate() - 7);
+    else if (period === "30d") cutoff.setDate(cutoff.getDate() - 30);
+    const matchesPeriod = new Date(c.started_at) >= cutoff;
+    const matchesOp = operator === "all" || c.operator_id === operator;
+    return matchesPeriod && matchesOp;
+  });
   const total = filtered.length;
   const avgScore = total ? Math.round(filtered.reduce((a, c) => a + (c.score_sac ?? 0), 0) / total) : 0;
   const avgResp = total ? filtered.reduce((a, c) => a + (c.avg_response_time_s ?? 0), 0) / total : 0;

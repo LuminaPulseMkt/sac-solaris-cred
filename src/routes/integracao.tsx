@@ -64,12 +64,13 @@ async function runWebhookTest(op: Operator): Promise<TestResult> {
     instance: op.instance_name,
     data: {
       key: {
-        remoteJid: "5511999990000@s.whatsapp.net",
-        fromMe: false,
+        // fromMe:true = mensagem do operador, não cria conversa de lead falso
+        remoteJid: "5500000000000@s.whatsapp.net",
+        fromMe: true,
         id: `TEST_${Date.now()}`,
       },
-      pushName: "Lead Teste",
-      message: { conversation: "Mensagem de teste do SAC" },
+      pushName: "[TESTE SAC]",
+      message: { conversation: "[TESTE] Verificação de conectividade do webhook SAC" },
       messageTimestamp: Math.floor(Date.now() / 1000),
     },
   };
