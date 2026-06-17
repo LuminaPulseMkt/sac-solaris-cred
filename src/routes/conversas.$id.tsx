@@ -176,6 +176,7 @@ function ConversationChatPage() {
               })}
             </ul>
           )}
+          <div ref={bottomRef} />
         </section>
       </main>
     </>
