@@ -31,15 +31,19 @@ function detectMessageType(message: Record<string, unknown> | undefined): string
   return "text";
 }
 
+// FIX 1: calcScore agora usa os mesmos valores de score.ts
 function calcScore(opts: {
   avgResponseTimeSeconds: number | null;
   status: string;
   converted: boolean;
 }): number {
   const t = opts.avgResponseTimeSeconds ?? 999;
-  const notaTempo = t <= 120 ? 100 : t <= 300 ? 70 : t <= 600 ? 40 : 10;
-  const notaStatus = opts.status === "resolved" ? 100 : opts.status === "ongoing" ? 50 : 10;
-  const notaConversao = opts.converted ? 100 : 0;
+  const minutes = t / 60;
+  const notaTempo = minutes <= 2 ? 100 : minutes <= 5 ? 70 : minutes <= 10 ? 40 : 10;
+  // Alinhado com score.ts: ongoing=60, resolved=100, escalated=20
+  const notaStatus = opts.status === "resolved" ? 100 : opts.status === "ongoing" ? 60 : 20;
+  // Alinhado com score.ts: converted=100, not converted=30
+  const notaConversao = opts.converted ? 100 : 30;
   return Math.round(notaTempo * 0.4 + notaStatus * 0.35 + notaConversao * 0.25);
 }
 
@@ -161,7 +165,17 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         const tsRaw = payload.data?.messageTimestamp;
         const sentAt = new Date((tsRaw ? tsRaw : Date.now() / 1000) * 1000).toISOString();
 
-        // Upsert conversation
+        // FIX 2: busca a conversa existente ANTES do upsert para preservar status e converted
+        const { data: existingConv } = await supabaseAdmin
+          .from("conversations")
+          .select("id, status, converted, total_messages, avg_response_time_s, score_sac")
+          .eq("operator_id", operator.id)
+          .eq("remote_jid", remoteJid)
+          .maybeSingle();
+
+        // Só define "ongoing" se for conversa nova — preserva "resolved"/"escalated" se já existir
+        const statusToSet = existingConv ? existingConv.status : "ongoing";
+
         const { data: convUpsert, error: convError } = await supabaseAdmin
           .from("conversations")
           .upsert(
@@ -171,7 +185,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
               lead_phone: leadPhone,
               lead_name: leadName,
               instance_name: operator.instance_name,
-              status: "ongoing",
+              status: statusToSet,
               updated_at: new Date().toISOString(),
             },
             { onConflict: "operator_id,remote_jid" }
@@ -236,7 +250,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           return Response.json({ error: "DB error" }, { status: 500 });
         }
 
-        // Recalculate avg response time & score
+        // Recalculate avg response time using only operator responses
         const { data: opResponses } = await supabaseAdmin
           .from("messages")
           .select("response_time_s")
@@ -251,6 +265,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           ? Math.round(validRts.reduce((a, b) => a + b, 0) / validRts.length)
           : null;
 
+        // FIX 4: score calculado com status real da conversa (não forçado como "ongoing")
         const score = calcScore({
           avgResponseTimeSeconds: avgRt,
           status: conversation.status,
@@ -266,12 +281,18 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           })
           .eq("id", conversation.id);
 
-        // Update operator counters
+        // FIX 3: messages_today — reseta se o último recebimento foi em outro dia
+        const lastReceivedAt = operator.last_received_at ? new Date(operator.last_received_at) : null;
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const lastDayStr = lastReceivedAt ? lastReceivedAt.toISOString().slice(0, 10) : null;
+        const isNewDay = lastDayStr !== todayStr;
+
         await supabaseAdmin
           .from("operators")
           .update({
             last_received_at: new Date().toISOString(),
-            messages_today: (operator.messages_today ?? 0) + 1,
+            // Zera o contador se for um novo dia, senão incrementa
+            messages_today: isNewDay ? 1 : (operator.messages_today ?? 0) + 1,
             status: operator.status === "pending" ? "active" : operator.status,
           })
           .eq("id", operator.id);
