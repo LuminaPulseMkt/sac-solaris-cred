@@ -140,7 +140,7 @@ function ConversationChatPage() {
         </Link>
         {conversation && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Stat label="Score SAC" value={<ScoreBar score={conversation.score_sac ?? 0} size="sm" />} />
+            <Stat label="Score SAC" value={<ScoreBar score={conversation.score_sac ?? 0} />} />
             <Stat label="Tempo médio resposta" value={conversation.avg_response_time_s ? formatDuration(conversation.avg_response_time_s) : "—"} />
             <Stat label="Total mensagens" value={conversation.total_messages} />
             <Stat label="Início" value={`${formatDateTime(conversation.started_at)} · ${durationLabel}`} />
