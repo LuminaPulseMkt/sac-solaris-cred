@@ -29,8 +29,8 @@ export const Route = createFileRoute("/dashboard")({
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 function scoreColor(score: number) {
-  if (score >= 70) return "var(--color-success)";
-  if (score >= 40) return "var(--color-warning)";
+  if (score >= 80) return "var(--color-success)";
+  if (score >= 50) return "var(--color-warning)";
   return "var(--color-danger)";
 }
 
