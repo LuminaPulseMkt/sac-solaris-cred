@@ -277,7 +277,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           .update({
             avg_response_time_s: avgRt,
             score_sac: score,
-            total_messages: (conversation.total_messages ?? 0) + 1,
+            total_messages: (existingConv?.total_messages ?? conversation.total_messages ?? 0) + 1,
           })
           .eq("id", conversation.id);
 

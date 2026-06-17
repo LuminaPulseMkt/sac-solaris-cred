@@ -129,15 +129,20 @@ function ConversationChatPage() {
 
   return (
     <>
-      <AppHeader title="Conversa" />
+      <AppHeader
+        title={conversation?.lead_name ?? conversation?.lead_phone ?? "Conversa"}
+        subtitle={conversation ? `${conversation.lead_phone} · ${conversation.instance_name}` : ""}
+        actions={
+          <Link
+            to="/conversas"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft size={16} />
+            Voltar
+          </Link>
+        }
+      />
       <div className="p-6 max-w-4xl mx-auto space-y-6">
-        <Link
-          to="/conversas"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft size={16} />
-          Voltar
-        </Link>
         {conversation && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Stat label="Score SAC" value={<ScoreBar score={conversation.score_sac ?? 0} />} />
