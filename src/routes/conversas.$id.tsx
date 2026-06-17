@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Image as ImageIcon, Mic, FileText, MapPin, Sticker, Video } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { ScoreBar } from "@/components/score-bar";
@@ -73,8 +73,14 @@ function rtTone(seconds: number): string {
 
 function ConversationChatPage() {
   const { id } = Route.useParams();
-  const conv = useQuery({ queryKey: ["conversation", id], queryFn: () => fetchConversation(id) });
+  const qc = useQueryClient();
+  const conv = useQuery({
+    queryKey: ["conversation", id],
+    queryFn: () => fetchConversation(id),
+    refetchInterval: 10_000,
+  });
   const [messages, setMessages] = useState<Message[]>([]);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,9 +89,15 @@ function ConversationChatPage() {
       .channel(`sac-conv-${id}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${id}` },
+        { event: "INSERT", schema: "public", table: "messages" },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
+          const newMsg = payload.new as Message;
+          if (newMsg.conversation_id !== id) return;
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
+          qc.invalidateQueries({ queryKey: ["conversation", id] });
         }
       )
       .subscribe();
@@ -93,7 +105,11 @@ function ConversationChatPage() {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [id]);
+  }, [id, qc]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
 
   const conversation = conv.data;
 
@@ -160,6 +176,7 @@ function ConversationChatPage() {
               })}
             </ul>
           )}
+          <div ref={bottomRef} />
         </section>
       </main>
     </>
