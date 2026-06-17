@@ -38,8 +38,8 @@ function RelatoriosPage() {
 
   const convsFn = useServerFn(listConversations);
   const statsFn = useServerFn(listOperatorStats);
-  const { data: convs = [] } = useQuery({ queryKey: ["conversations"], queryFn: () => convsFn() });
-  const { data: stats = [] } = useQuery({ queryKey: ["operator-stats"], queryFn: () => statsFn() });
+  const { data: convs = [] } = useQuery({ queryKey: ["conversations"], queryFn: () => convsFn(), refetchInterval: 30_000 });
+  const { data: stats = [] } = useQuery({ queryKey: ["operator-stats"], queryFn: () => statsFn(), refetchInterval: 30_000 });
 
   const filtered = convs.filter((c) => operator === "all" || c.operator_id === operator);
   const total = filtered.length;
