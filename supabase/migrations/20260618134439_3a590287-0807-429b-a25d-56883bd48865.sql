@@ -1,0 +1,1 @@
+GRANT ALL ON TABLE public.operators TO service_role;
