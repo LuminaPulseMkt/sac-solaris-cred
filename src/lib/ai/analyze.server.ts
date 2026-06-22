@@ -201,29 +201,34 @@ export async function recalcOperatorMetrics(operatorId: string): Promise<void> {
 
 
 export async function analyzeConversationById(conversationId: string): Promise<ConversationAnalysis> {
-  const { data: conv } = await supabaseAdmin
-    .from("conversations")
-    .select("*, operators(name)")
-    .eq("id", conversationId)
-    .maybeSingle();
-  if (!conv) throw new Error("Conversa não encontrada");
+  try {
+    const { data: conv } = await supabaseAdmin
+      .from("conversations")
+      .select("*, operators(name)")
+      .eq("id", conversationId)
+      .maybeSingle();
+    if (!conv) throw new Error("Conversa não encontrada: " + conversationId);
 
-  const { data: msgs } = await supabaseAdmin
-    .from("messages")
-    .select("from_role, message_text, sent_at, response_time_s")
-    .eq("conversation_id", conversationId)
-    .order("sent_at", { ascending: true });
+    const { data: msgs } = await supabaseAdmin
+      .from("messages")
+      .select("from_role, message_text, sent_at, response_time_s")
+      .eq("conversation_id", conversationId)
+      .order("sent_at", { ascending: true });
 
-  const operatorName =
-    (conv as unknown as { operators?: { name?: string } }).operators?.name ?? "Operador";
+    const operatorName =
+      (conv as unknown as { operators?: { name?: string } }).operators?.name ?? "Operador";
 
-  return analyzeConversation({
-    conversationId,
-    operatorId: conv.operator_id,
-    messages: (msgs ?? []) as AnalyzeMessage[],
-    operatorName,
-    leadName: conv.lead_name ?? conv.lead_phone ?? "Lead",
-    avgResponseTime: conv.avg_response_time_s,
-    totalMessages: conv.total_messages,
-  });
+    return await analyzeConversation({
+      conversationId,
+      operatorId: conv.operator_id,
+      messages: (msgs ?? []) as AnalyzeMessage[],
+      operatorName,
+      leadName: conv.lead_name ?? conv.lead_phone ?? "Lead",
+      avgResponseTime: conv.avg_response_time_s,
+      totalMessages: conv.total_messages,
+    });
+  } catch (e) {
+    console.error("[analyzeConversationById] erro em", conversationId, e);
+    throw e instanceof Error ? e : new Error(String(e));
+  }
 }
