@@ -142,10 +142,11 @@ function AlertasPage() {
       }
     });
 
-    // 2. Score abaixo do mínimo
+    // 2. Score abaixo do mínimo (ignora encerradas)
     convs
-      .filter((c) => c.score_sac !== null && c.score_sac < rules.minScore)
+      .filter((c) => c.score_sac !== null && c.score_sac < rules.minScore && c.status !== "resolved" && !c.ended_at && !isEndedByAi(c.id))
       .slice(0, 10)
+
       .forEach((c) => {
         const opName = (c.operators as { name?: string } | null)?.name ?? "—";
         result.push({
