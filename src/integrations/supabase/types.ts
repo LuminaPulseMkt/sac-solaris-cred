@@ -14,6 +14,108 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_analyses: {
+        Row: {
+          analyzed_at: string
+          conversation_id: string | null
+          conversion_likelihood: string | null
+          created_at: string
+          ended: boolean
+          highlights: Json
+          id: string
+          improvements: Json
+          operator_id: string | null
+          quality_score: number | null
+          raw_response: Json | null
+          response_time_assessment: string | null
+          sentiment: string | null
+          status: string | null
+          summary: string | null
+          topics: Json
+          updated_at: string
+        }
+        Insert: {
+          analyzed_at?: string
+          conversation_id?: string | null
+          conversion_likelihood?: string | null
+          created_at?: string
+          ended?: boolean
+          highlights?: Json
+          id?: string
+          improvements?: Json
+          operator_id?: string | null
+          quality_score?: number | null
+          raw_response?: Json | null
+          response_time_assessment?: string | null
+          sentiment?: string | null
+          status?: string | null
+          summary?: string | null
+          topics?: Json
+          updated_at?: string
+        }
+        Update: {
+          analyzed_at?: string
+          conversation_id?: string | null
+          conversion_likelihood?: string | null
+          created_at?: string
+          ended?: boolean
+          highlights?: Json
+          id?: string
+          improvements?: Json
+          operator_id?: string | null
+          quality_score?: number | null
+          raw_response?: Json | null
+          response_time_assessment?: string | null
+          sentiment?: string | null
+          status?: string | null
+          summary?: string | null
+          topics?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_analyses_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_analyses_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      app_settings: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          key: string
+          updated_at: string
+          value: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          key: string
+          updated_at?: string
+          value?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           avg_response_time_s: number | null
