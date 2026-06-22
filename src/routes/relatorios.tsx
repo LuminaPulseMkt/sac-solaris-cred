@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AppHeader } from "@/components/app-header";
 import { Button } from "@/components/ui/button";
@@ -8,15 +8,17 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MetricCard } from "@/components/metric-card";
-import { Download, FileText, FileBarChart, MessageSquare, Loader2 } from "lucide-react";
+import { Download, FileText, FileBarChart, MessageSquare, Loader2, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { listConversations, listOperatorStats } from "@/lib/operators.functions";
-import { listAnalyses } from "@/lib/ai/ai.functions";
+import { listAnalyses, getOperatorAiReport, analyzeAllPending } from "@/lib/ai/ai.functions";
 import { getSettings } from "@/lib/settings/settings.functions";
 import { sendReportViaWhatsapp } from "@/lib/reports/whatsapp.functions";
 import { generateReportPdf, type ReportAnalysisSummary } from "@/lib/reports/generate-pdf";
 import { formatDuration } from "@/lib/sac/format";
+
 
 export const Route = createFileRoute("/relatorios")({
   head: () => ({
