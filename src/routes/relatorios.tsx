@@ -110,7 +110,11 @@ function RelatoriosPage() {
     setAnalyzing(true);
     try {
       const r = await analyzeFn({ data: { operator_id: operator !== "all" ? operator : undefined } });
-      toast.success(`${r.analyzed} analisadas${r.failed ? `, ${r.failed} falhas` : ""}`);
+      if (r.firstError) {
+        toast.error("Erro na análise: " + r.firstError);
+      } else {
+        toast.success(`${r.analyzed} conversas analisadas${r.failed ? `, ${r.failed} falhas` : ""}`);
+      }
       qc.invalidateQueries({ queryKey: ["analyses"] });
       qc.invalidateQueries({ queryKey: ["ai-report"] });
     } catch (e) {
