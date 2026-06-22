@@ -368,3 +368,240 @@ function RelatoriosPage() {
 
   );
 }
+
+type OperatorMetric = {
+  operator_id: string;
+  total_analyzed: number | null;
+  total_ended: number | null;
+  avg_quality_score: number | null;
+  sentiment_positive: number | null;
+  sentiment_neutral: number | null;
+  sentiment_negative: number | null;
+  top_topics: unknown;
+  top_improvements: unknown;
+};
+
+type OpStat = {
+  id: string;
+  name: string;
+  total: number;
+  avgScore: number;
+  avgResp: number;
+  convRate: number;
+};
+
+function OperatorReportTab({
+  stats,
+  metrics,
+  analyzing,
+  onAnalyzeAll,
+}: {
+  stats: OpStat[];
+  metrics: OperatorMetric[];
+  analyzing: boolean;
+  onAnalyzeAll: () => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">Métricas consolidadas pela IA por operador</p>
+        <Button size="sm" variant="outline" onClick={onAnalyzeAll} disabled={analyzing}>
+          {analyzing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
+          Analisar pendentes
+        </Button>
+      </div>
+
+      {stats.length === 0 ? (
+        <div className="py-12 text-center text-sm text-muted-foreground">Sem operadores cadastrados.</div>
+      ) : (
+        stats.map((op) => {
+          const m = metrics.find((x) => x.operator_id === op.id);
+          return <OperatorAiCard key={op.id} op={op} m={m} />;
+        })
+      )}
+    </div>
+  );
+}
+
+function OperatorAiCard({ op, m }: { op: OpStat; m?: OperatorMetric }) {
+  const [open, setOpen] = useState(false);
+  const totalAi = m?.total_analyzed ?? 0;
+  const aiScore = m?.avg_quality_score != null ? Math.round(Number(m.avg_quality_score)) : null;
+  const totalSent = (m?.sentiment_positive ?? 0) + (m?.sentiment_neutral ?? 0) + (m?.sentiment_negative ?? 0);
+  const pct = (n: number) => (totalSent ? Math.round((n / totalSent) * 100) : 0);
+  const topics = Array.isArray(m?.top_topics) ? (m!.top_topics as Array<{ topic: string; count: number }>) : [];
+  const imps = Array.isArray(m?.top_improvements) ? (m!.top_improvements as Array<{ text: string; count: number }>) : [];
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between text-left">
+        <div>
+          <div className="font-semibold">{op.name}</div>
+          <div className="text-xs text-muted-foreground">
+            {op.total} conversas · Tempo médio {formatDuration(op.avgResp)}
+          </div>
+        </div>
+        <div className="flex items-center gap-3 text-xs">
+          <Badge variant="secondary">SAC {op.avgScore}</Badge>
+          <Badge variant="secondary">IA {aiScore ?? "—"}</Badge>
+          {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </div>
+      </button>
+
+      {open && (
+        <div className="mt-4 space-y-3 border-t border-border pt-4 text-sm">
+          {totalAi === 0 ? (
+            <p className="text-muted-foreground">Nenhuma análise de IA para este operador ainda.</p>
+          ) : (
+            <>
+              <div className="text-xs text-muted-foreground">
+                Sentimento: 😊 {pct(m?.sentiment_positive ?? 0)}% · 😐 {pct(m?.sentiment_neutral ?? 0)}% · 😞 {pct(m?.sentiment_negative ?? 0)}%
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Encerradas pela IA: {m?.total_ended ?? 0} de {totalAi}
+              </div>
+              {topics.length > 0 && (
+                <div>
+                  <div className="text-[11px] uppercase text-muted-foreground mb-1">Tópicos mais abordados</div>
+                  <div className="flex flex-wrap gap-1">
+                    {topics.slice(0, 6).map((t) => (
+                      <Badge key={t.topic} variant="secondary">{t.topic} · {t.count}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {imps.length > 0 && (
+                <div>
+                  <div className="text-[11px] uppercase text-muted-foreground mb-1">💡 Top melhorias sugeridas</div>
+                  <ol className="list-decimal pl-5 space-y-0.5 text-sm">
+                    {imps.map((i, idx) => (
+                      <li key={idx}>{i.text} <span className="text-muted-foreground">({i.count}x)</span></li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type AiReport = {
+  total: number;
+  avgQualityScore: number;
+  ended: number;
+  ongoing: number;
+  sentiments: { positive: number; neutral: number; negative: number };
+  topTopics: Array<{ topic: string; count: number }>;
+  topImprovements: Array<{ text: string; count: number }>;
+  analyses: Array<{
+    id: string;
+    quality_score: number | null;
+    sentiment: string | null;
+    ended: boolean | null;
+    analyzed_at: string | null;
+    operators?: { name?: string } | null;
+  }>;
+};
+
+function AiReportTab({
+  aiReport,
+  analyzing,
+  onAnalyzeAll,
+}: {
+  aiReport: AiReport | undefined;
+  analyzing: boolean;
+  onAnalyzeAll: () => void;
+}) {
+  const total = aiReport?.total ?? 0;
+  const s = aiReport?.sentiments;
+  const predominant = s
+    ? s.positive >= s.neutral && s.positive >= s.negative
+      ? "😊 Positivo"
+      : s.negative > s.positive
+        ? "😞 Negativo"
+        : "😐 Neutro"
+    : "—";
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {total > 0 ? `${total} conversas analisadas no período` : "Nenhuma análise no período"}
+        </p>
+        <Button size="sm" onClick={onAnalyzeAll} disabled={analyzing}>
+          {analyzing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
+          Analisar pendentes
+        </Button>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Analisadas" value={total ? String(total) : "—"} />
+        <MetricCard label="Score médio IA" value={total ? `${aiReport!.avgQualityScore}/100` : "—"} />
+        <MetricCard label="Encerradas (IA)" value={total ? String(aiReport!.ended) : "—"} />
+        <MetricCard label="Sentimento" value={total ? predominant : "—"} />
+      </div>
+
+      {total > 0 && aiReport && (
+        <>
+          <section className="rounded-lg border border-border bg-card p-4">
+            <h3 className="mb-3 text-sm font-semibold">Tópicos mais abordados</h3>
+            {aiReport.topTopics.length === 0 ? (
+              <p className="text-sm text-muted-foreground">—</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {aiReport.topTopics.map((t) => (
+                  <Badge key={t.topic} variant="secondary">{t.topic} · {t.count}</Badge>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-lg border border-border bg-card p-4">
+            <h3 className="mb-3 text-sm font-semibold">💡 Top melhorias sugeridas</h3>
+            {aiReport.topImprovements.length === 0 ? (
+              <p className="text-sm text-muted-foreground">—</p>
+            ) : (
+              <ol className="list-decimal pl-5 space-y-1 text-sm">
+                {aiReport.topImprovements.map((i, idx) => (
+                  <li key={idx}>{i.text} <span className="text-muted-foreground">({i.count} conversas)</span></li>
+                ))}
+              </ol>
+            )}
+          </section>
+
+          <section className="rounded-lg border border-border bg-card p-4">
+            <h3 className="mb-3 text-sm font-semibold">Análises recentes</h3>
+            <table className="w-full text-sm">
+              <thead className="text-[11px] uppercase text-muted-foreground">
+                <tr>
+                  <th className="py-2 text-left">Operador</th>
+                  <th className="text-left">Score IA</th>
+                  <th className="text-left">Sentimento</th>
+                  <th className="text-left">Encerrada</th>
+                  <th className="text-right">Data</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aiReport.analyses.slice(0, 20).map((a) => (
+                  <tr key={a.id} className="border-t border-border">
+                    <td className="py-2">{a.operators?.name ?? "—"}</td>
+                    <td>{a.quality_score ?? "—"}</td>
+                    <td>{a.sentiment ?? "—"}</td>
+                    <td>{a.ended ? "Sim" : "Não"}</td>
+                    <td className="text-right text-muted-foreground">
+                      {a.analyzed_at ? new Date(a.analyzed_at).toLocaleString("pt-BR") : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        </>
+      )}
+    </div>
+  );
+}
+
