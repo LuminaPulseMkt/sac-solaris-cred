@@ -11,6 +11,7 @@ import { BellRing, Clock, TrendingDown, Users, CheckCircle2 } from "lucide-react
 import { toast } from "sonner";
 import { useSettingsStore } from "@/stores/settings";
 import { listConversations } from "@/lib/operators.functions";
+import { listAnalyses } from "@/lib/ai/ai.functions";
 import { formatDuration, formatDateTime } from "@/lib/sac/format";
 
 export const Route = createFileRoute("/alertas")({
@@ -87,11 +88,17 @@ function AlertCard({ alert }: { alert: AlertItem }) {
 function AlertasPage() {
   const { rules, setRules } = useSettingsStore();
   const convsFn = useServerFn(listConversations);
+  const analysesFn = useServerFn(listAnalyses);
 
   const { data: convs = [] } = useQuery({
     queryKey: ["conversations"],
     queryFn: () => convsFn(),
     refetchInterval: 30_000,
+  });
+  const { data: analyses = [] } = useQuery({
+    queryKey: ["analyses"],
+    queryFn: () => analysesFn({ data: {} }),
+    refetchInterval: 60_000,
   });
 
   const alerts = useMemo<AlertItem[]>(() => {
@@ -99,8 +106,20 @@ function AlertasPage() {
     const now = Date.now();
     const noResponseMs = rules.noResponseMinutes * 60 * 1000;
 
-    // Conversas em andamento
-    const ongoing = convs.filter((c) => c.status === "ongoing");
+    // Última análise por conversa
+    const latestByConv = new Map<string, (typeof analyses)[number]>();
+    for (const a of analyses) {
+      const cur = latestByConv.get(a.conversation_id ?? "");
+      if (!cur || new Date(a.analyzed_at ?? a.created_at) > new Date(cur.analyzed_at ?? cur.created_at)) {
+        if (a.conversation_id) latestByConv.set(a.conversation_id, a);
+      }
+    }
+    const isEndedByAi = (id: string) => latestByConv.get(id)?.ended === true;
+
+    // Conversas em andamento, excluindo encerradas
+    const ongoing = convs.filter(
+      (c) => c.status === "ongoing" && !c.ended_at && !isEndedByAi(c.id),
+    );
 
     // 1. Sem resposta por X minutos
     ongoing.forEach((c) => {
@@ -154,10 +173,29 @@ function AlertasPage() {
       });
     }
 
+    // 4. IA identificou encerramento (info, últimas 24h)
+    const dayAgo = now - 24 * 60 * 60 * 1000;
+    for (const a of analyses) {
+      if (!a.ended || !a.conversation_id) continue;
+      if (new Date(a.analyzed_at ?? a.created_at).getTime() < dayAgo) continue;
+      const c = convs.find((x) => x.id === a.conversation_id);
+      const lead = c?.lead_name ?? c?.lead_phone ?? "lead";
+      result.push({
+        id: `ai-ended-${a.id}`,
+        severity: "info",
+        type: "queue_peak",
+        title: `IA identificou encerramento`,
+        description: `A IA detectou que a conversa com ${lead} foi encerrada.`,
+        conversationId: a.conversation_id,
+        leadName: lead,
+        value: 0,
+      });
+    }
+
     // Ordena: high > medium > info, depois por valor decrescente
     const order = { high: 0, medium: 1, info: 2 };
     return result.sort((a, b) => order[a.severity] - order[b.severity] || b.value - a.value);
-  }, [convs, rules]);
+  }, [convs, analyses, rules]);
 
   return (
     <>
