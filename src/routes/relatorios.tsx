@@ -246,7 +246,7 @@ function RelatoriosPage() {
         }
       />
 
-      <main className="flex-1 space-y-6 p-4 md:p-6">
+      <main className="flex-1 space-y-4 p-4 md:p-6">
         <section className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[180px_1fr_auto]">
           <div>
             <Label className="text-[11px] uppercase text-muted-foreground">Período</Label>
@@ -275,68 +275,96 @@ function RelatoriosPage() {
           </div>
         </section>
 
-        <section>
-          <h2 className="mb-2 text-sm font-semibold">Resumo executivo</h2>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard label="Conversas" value={total ? String(total) : "—"} />
-            <MetricCard label="Tempo médio" value={avgResp ? formatDuration(avgResp) : "—"} />
-            <MetricCard label="Conversão" value={total ? `${convRate.toFixed(1)}%` : "—"} />
-            <MetricCard label="Score médio" value={total ? `${avgScore}/100` : "—"} />
-          </div>
-        </section>
+        <Tabs defaultValue="geral">
+          <TabsList>
+            <TabsTrigger value="geral">Visão Geral</TabsTrigger>
+            <TabsTrigger value="operadores">Por Operador</TabsTrigger>
+            <TabsTrigger value="ia">✨ Análise IA</TabsTrigger>
+          </TabsList>
 
-        {aiSummary && (
-          <section className="rounded-lg border border-border bg-card p-4">
-            <h2 className="mb-3 text-sm font-semibold">✨ Insights da IA</h2>
-            <div className="grid gap-3 sm:grid-cols-3 text-sm">
-              <div>
-                <div className="text-[11px] uppercase text-muted-foreground">Score médio IA</div>
-                <div className="text-lg font-semibold">{aiSummary.averageScore}/100</div>
+          <TabsContent value="geral" className="space-y-6 mt-4">
+            <section>
+              <h2 className="mb-2 text-sm font-semibold">Resumo executivo</h2>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <MetricCard label="Conversas" value={total ? String(total) : "—"} />
+                <MetricCard label="Tempo médio" value={avgResp ? formatDuration(avgResp) : "—"} />
+                <MetricCard label="Conversão" value={total ? `${convRate.toFixed(1)}%` : "—"} />
+                <MetricCard label="Score médio" value={total ? `${avgScore}/100` : "—"} />
               </div>
-              <div>
-                <div className="text-[11px] uppercase text-muted-foreground">Sentimento</div>
-                <div className="text-sm">
-                  😊 {aiSummary.sentimentCounts.positive} · 😐 {aiSummary.sentimentCounts.neutral} · 😞 {aiSummary.sentimentCounts.negative}
-                </div>
-              </div>
-              <div>
-                <div className="text-[11px] uppercase text-muted-foreground mb-1">Top tópicos</div>
-                <div className="flex flex-wrap gap-1">
-                  {aiSummary.topTopics.slice(0, 3).map((t) => (
-                    <Badge key={t.topic} variant="secondary">{t.topic} · {t.count}</Badge>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
+            </section>
 
-        <section className="rounded-lg border border-border bg-card p-4">
-          <h2 className="mb-3 text-sm font-semibold">Ranking de score por operador</h2>
-          {ranking.length === 0 ? (
-            <div className="py-12 text-center">
-              <FileBarChart className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-              <p className="text-sm font-medium">Sem dados para exibir.</p>
-              <p className="mt-1 text-xs text-muted-foreground">Cadastre operadores e receba conversas pelo webhook.</p>
-            </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="text-[11px] uppercase text-muted-foreground">
-                <tr><th className="py-2 text-left">Operador</th><th className="text-left">Conversas</th><th className="text-right">Score</th></tr>
-              </thead>
-              <tbody>
-                {ranking.map((r) => (
-                  <tr key={r.Operador} className="border-t border-border">
-                    <td className="py-2">{r.Operador}</td>
-                    <td>{r.Conversas}</td>
-                    <td className="text-right font-medium tabular-nums">{r.Score}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </section>
+            {aiSummary && (
+              <section className="rounded-lg border border-border bg-card p-4">
+                <h2 className="mb-3 text-sm font-semibold">✨ Insights da IA</h2>
+                <div className="grid gap-3 sm:grid-cols-3 text-sm">
+                  <div>
+                    <div className="text-[11px] uppercase text-muted-foreground">Score médio IA</div>
+                    <div className="text-lg font-semibold">{aiSummary.averageScore}/100</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase text-muted-foreground">Sentimento</div>
+                    <div className="text-sm">
+                      😊 {aiSummary.sentimentCounts.positive} · 😐 {aiSummary.sentimentCounts.neutral} · 😞 {aiSummary.sentimentCounts.negative}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase text-muted-foreground mb-1">Top tópicos</div>
+                    <div className="flex flex-wrap gap-1">
+                      {aiSummary.topTopics.slice(0, 3).map((t) => (
+                        <Badge key={t.topic} variant="secondary">{t.topic} · {t.count}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            <section className="rounded-lg border border-border bg-card p-4">
+              <h2 className="mb-3 text-sm font-semibold">Ranking de score por operador</h2>
+              {ranking.length === 0 ? (
+                <div className="py-12 text-center">
+                  <FileBarChart className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+                  <p className="text-sm font-medium">Sem dados para exibir.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Cadastre operadores e receba conversas pelo webhook.</p>
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="text-[11px] uppercase text-muted-foreground">
+                    <tr><th className="py-2 text-left">Operador</th><th className="text-left">Conversas</th><th className="text-right">Score</th></tr>
+                  </thead>
+                  <tbody>
+                    {ranking.map((r) => (
+                      <tr key={r.Operador} className="border-t border-border">
+                        <td className="py-2">{r.Operador}</td>
+                        <td>{r.Conversas}</td>
+                        <td className="text-right font-medium tabular-nums">{r.Score}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+          </TabsContent>
+
+          <TabsContent value="operadores" className="mt-4">
+            <OperatorReportTab
+              stats={stats}
+              metrics={aiReport?.operatorMetrics ?? []}
+              analyzing={analyzing}
+              onAnalyzeAll={handleAnalyzeAll}
+            />
+          </TabsContent>
+
+          <TabsContent value="ia" className="mt-4">
+            <AiReportTab
+              aiReport={aiReport}
+              analyzing={analyzing}
+              onAnalyzeAll={handleAnalyzeAll}
+            />
+          </TabsContent>
+        </Tabs>
       </main>
     </>
+
   );
 }
