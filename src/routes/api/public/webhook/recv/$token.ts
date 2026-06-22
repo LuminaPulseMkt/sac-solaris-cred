@@ -306,6 +306,32 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           origin_ip: originIp,
         });
 
+        // Fire-and-forget AI analysis trigger
+        try {
+          const { data: autoRow } = await supabaseAdmin
+            .from("app_settings")
+            .select("value")
+            .eq("key", "ai_auto_analyze")
+            .maybeSingle();
+          const autoEnabled = (autoRow?.value ?? "false") === "true";
+          if (autoEnabled) {
+            const newTotal = (existingConv?.total_messages ?? conversation.total_messages ?? 0) + 1;
+            const closingRegex = /\b(tchau|at[ée] logo|obrigad|encerrando|encerrado|at[ée] mais|tenha um bom|qualquer d[uú]vida|foi um prazer|abra[cç]os)\b/i;
+            const idleMs = lastOpposite ? Date.now() - new Date(lastOpposite.sent_at).getTime() : 0;
+            const shouldAnalyze =
+              newTotal % 10 === 0 ||
+              (fromMe && closingRegex.test(messageText)) ||
+              (!fromMe && idleMs > 30 * 60 * 1000);
+            if (shouldAnalyze) {
+              import("@/lib/ai/analyze.server")
+                .then((m) => m.analyzeConversationById(conversation.id))
+                .catch(() => {});
+            }
+          }
+        } catch {
+          // never block webhook response
+        }
+
         return Response.json({
           received: true,
           conversation_id: conversation.id,
