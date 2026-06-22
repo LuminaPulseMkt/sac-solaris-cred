@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Image as ImageIcon, Mic, FileText, MapPin, Sticker, Video } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { ScoreBar } from "@/components/score-bar";
+import { AiAnalysisPanel } from "@/components/ai-analysis-panel";
 import { supabase } from "@/integrations/supabase/client";
 import { formatTime, formatDateTime, formatDuration } from "@/lib/sac/format";
 
@@ -151,6 +152,8 @@ function ConversationChatPage() {
             <Stat label="Início" value={`${formatDateTime(conversation.started_at)} · ${durationLabel}`} />
           </div>
         )}
+
+        <AiAnalysisPanel conversationId={id} />
 
         <div className="rounded-xl border bg-card shadow-sm">
           <div className="p-4 border-b">
