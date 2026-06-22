@@ -75,21 +75,51 @@ function summarizeAnalyses(rows: Array<{
 }
 
 function RelatoriosPage() {
+  const qc = useQueryClient();
   const [period, setPeriod] = useState("7d");
   const [operator, setOperator] = useState("all");
   const [includeAi, setIncludeAi] = useState(true);
   const [sending, setSending] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const convsFn = useServerFn(listConversations);
   const statsFn = useServerFn(listOperatorStats);
   const analysesFn = useServerFn(listAnalyses);
   const settingsFn = useServerFn(getSettings);
   const sendFn = useServerFn(sendReportViaWhatsapp);
+  const reportFn = useServerFn(getOperatorAiReport);
+  const analyzeFn = useServerFn(analyzeAllPending);
 
   const { data: convs = [] } = useQuery({ queryKey: ["conversations"], queryFn: () => convsFn(), refetchInterval: 30_000 });
   const { data: stats = [] } = useQuery({ queryKey: ["operator-stats"], queryFn: () => statsFn(), refetchInterval: 30_000 });
   const { data: analyses = [] } = useQuery({ queryKey: ["analyses"], queryFn: () => analysesFn({ data: {} }), refetchInterval: 60_000 });
   const { data: settings } = useQuery({ queryKey: ["settings"], queryFn: () => settingsFn() });
+  const { data: aiReport } = useQuery({
+    queryKey: ["ai-report", period, operator],
+    queryFn: () =>
+      reportFn({
+        data: {
+          period: (period === "24h" || period === "7d" || period === "30d" ? period : "7d") as "24h" | "7d" | "30d" | "all",
+          operator_id: operator !== "all" ? operator : undefined,
+        },
+      }),
+    refetchInterval: 60_000,
+  });
+
+  const handleAnalyzeAll = async () => {
+    setAnalyzing(true);
+    try {
+      const r = await analyzeFn({ data: { operator_id: operator !== "all" ? operator : undefined } });
+      toast.success(`${r.analyzed} analisadas${r.failed ? `, ${r.failed} falhas` : ""}`);
+      qc.invalidateQueries({ queryKey: ["analyses"] });
+      qc.invalidateQueries({ queryKey: ["ai-report"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
 
   const cutoff = useMemo(() => {
     const d = new Date();
