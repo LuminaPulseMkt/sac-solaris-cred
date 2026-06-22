@@ -46,6 +46,16 @@ export const analyzeAllPending = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ operator_id: z.string().uuid().optional() }).parse(input ?? {}))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: keyRow } = await supabaseAdmin
+      .from("app_settings")
+      .select("value")
+      .eq("key", "openai_api_key")
+      .maybeSingle();
+    if (!keyRow?.value || !String(keyRow.value).trim()) {
+      throw new Error("OpenAI não configurada. Acesse Configurações → Integrações.");
+    }
+
     const { data: done } = await supabaseAdmin.from("ai_analyses").select("conversation_id");
     const doneIds = (done ?? []).map((r) => r.conversation_id).filter(Boolean) as string[];
 
@@ -61,17 +71,20 @@ export const analyzeAllPending = createServerFn({ method: "POST" })
     const { data: pending } = await query;
     let analyzed = 0;
     let failed = 0;
+    let firstError: string | null = null;
     const { analyzeConversationById } = await import("@/lib/ai/analyze.server");
     for (const conv of pending ?? []) {
       try {
         await analyzeConversationById(conv.id);
         analyzed++;
         await new Promise((r) => setTimeout(r, 600));
-      } catch {
+      } catch (e) {
         failed++;
+        if (!firstError) firstError = e instanceof Error ? e.message : String(e);
+        console.error("[analyzeAllPending] falha em", conv.id, e);
       }
     }
-    return { analyzed, failed, total: pending?.length ?? 0 };
+    return { analyzed, failed, total: pending?.length ?? 0, firstError };
   });
 
 export const getOperatorAiReport = createServerFn({ method: "GET" })
