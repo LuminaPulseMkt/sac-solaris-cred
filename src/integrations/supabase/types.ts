@@ -277,6 +277,62 @@ export type Database = {
         }
         Relationships: []
       }
+      operator_ai_metrics: {
+        Row: {
+          avg_quality_score: number | null
+          id: string
+          last_analyzed_at: string | null
+          operator_id: string
+          sentiment_negative: number | null
+          sentiment_neutral: number | null
+          sentiment_positive: number | null
+          top_improvements: Json | null
+          top_topics: Json | null
+          total_analyzed: number | null
+          total_ended: number | null
+          total_ongoing: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          avg_quality_score?: number | null
+          id?: string
+          last_analyzed_at?: string | null
+          operator_id: string
+          sentiment_negative?: number | null
+          sentiment_neutral?: number | null
+          sentiment_positive?: number | null
+          top_improvements?: Json | null
+          top_topics?: Json | null
+          total_analyzed?: number | null
+          total_ended?: number | null
+          total_ongoing?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          avg_quality_score?: number | null
+          id?: string
+          last_analyzed_at?: string | null
+          operator_id?: string
+          sentiment_negative?: number | null
+          sentiment_neutral?: number | null
+          sentiment_positive?: number | null
+          top_improvements?: Json | null
+          top_topics?: Json | null
+          total_analyzed?: number | null
+          total_ended?: number | null
+          total_ongoing?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_ai_metrics_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: true
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operators: {
         Row: {
           channel: string

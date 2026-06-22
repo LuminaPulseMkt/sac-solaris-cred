@@ -136,8 +136,69 @@ Critérios:
       .eq("id", params.conversationId);
   }
 
+  await recalcOperatorMetrics(params.operatorId).catch(() => {});
+
   return analysis;
 }
+
+export async function recalcOperatorMetrics(operatorId: string): Promise<void> {
+  const { data: analyses } = await supabaseAdmin
+    .from("ai_analyses")
+    .select("quality_score, sentiment, ended, topics, improvements")
+    .eq("operator_id", operatorId);
+
+  if (!analyses?.length) return;
+
+  const total = analyses.length;
+  const avgQuality = Number(
+    (analyses.reduce((s, a) => s + (a.quality_score ?? 0), 0) / total).toFixed(2),
+  );
+  const sentPos = analyses.filter((a) => a.sentiment === "positive").length;
+  const sentNeu = analyses.filter((a) => a.sentiment === "neutral").length;
+  const sentNeg = analyses.filter((a) => a.sentiment === "negative").length;
+  const totalEnded = analyses.filter((a) => a.ended).length;
+
+  const topicCount: Record<string, number> = {};
+  analyses.forEach((a) => {
+    (Array.isArray(a.topics) ? (a.topics as string[]) : []).forEach((t) => {
+      topicCount[t] = (topicCount[t] ?? 0) + 1;
+    });
+  });
+  const topTopics = Object.entries(topicCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([topic, count]) => ({ topic, count }));
+
+  const impCount: Record<string, number> = {};
+  analyses.forEach((a) => {
+    (Array.isArray(a.improvements) ? (a.improvements as string[]) : []).forEach((i) => {
+      impCount[i] = (impCount[i] ?? 0) + 1;
+    });
+  });
+  const topImprovements = Object.entries(impCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([text, count]) => ({ text, count }));
+
+  await supabaseAdmin.from("operator_ai_metrics").upsert(
+    {
+      operator_id: operatorId,
+      total_analyzed: total,
+      total_ended: totalEnded,
+      total_ongoing: total - totalEnded,
+      avg_quality_score: avgQuality,
+      sentiment_positive: sentPos,
+      sentiment_neutral: sentNeu,
+      sentiment_negative: sentNeg,
+      top_topics: topTopics as never,
+      top_improvements: topImprovements as never,
+      last_analyzed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "operator_id" },
+  );
+}
+
 
 export async function analyzeConversationById(conversationId: string): Promise<ConversationAnalysis> {
   const { data: conv } = await supabaseAdmin

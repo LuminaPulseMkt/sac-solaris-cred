@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AppHeader } from "@/components/app-header";
 import { Button } from "@/components/ui/button";
@@ -8,15 +8,17 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MetricCard } from "@/components/metric-card";
-import { Download, FileText, FileBarChart, MessageSquare, Loader2 } from "lucide-react";
+import { Download, FileText, FileBarChart, MessageSquare, Loader2, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { listConversations, listOperatorStats } from "@/lib/operators.functions";
-import { listAnalyses } from "@/lib/ai/ai.functions";
+import { listAnalyses, getOperatorAiReport, analyzeAllPending } from "@/lib/ai/ai.functions";
 import { getSettings } from "@/lib/settings/settings.functions";
 import { sendReportViaWhatsapp } from "@/lib/reports/whatsapp.functions";
 import { generateReportPdf, type ReportAnalysisSummary } from "@/lib/reports/generate-pdf";
 import { formatDuration } from "@/lib/sac/format";
+
 
 export const Route = createFileRoute("/relatorios")({
   head: () => ({
@@ -73,21 +75,51 @@ function summarizeAnalyses(rows: Array<{
 }
 
 function RelatoriosPage() {
+  const qc = useQueryClient();
   const [period, setPeriod] = useState("7d");
   const [operator, setOperator] = useState("all");
   const [includeAi, setIncludeAi] = useState(true);
   const [sending, setSending] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const convsFn = useServerFn(listConversations);
   const statsFn = useServerFn(listOperatorStats);
   const analysesFn = useServerFn(listAnalyses);
   const settingsFn = useServerFn(getSettings);
   const sendFn = useServerFn(sendReportViaWhatsapp);
+  const reportFn = useServerFn(getOperatorAiReport);
+  const analyzeFn = useServerFn(analyzeAllPending);
 
   const { data: convs = [] } = useQuery({ queryKey: ["conversations"], queryFn: () => convsFn(), refetchInterval: 30_000 });
   const { data: stats = [] } = useQuery({ queryKey: ["operator-stats"], queryFn: () => statsFn(), refetchInterval: 30_000 });
   const { data: analyses = [] } = useQuery({ queryKey: ["analyses"], queryFn: () => analysesFn({ data: {} }), refetchInterval: 60_000 });
   const { data: settings } = useQuery({ queryKey: ["settings"], queryFn: () => settingsFn() });
+  const { data: aiReport } = useQuery({
+    queryKey: ["ai-report", period, operator],
+    queryFn: () =>
+      reportFn({
+        data: {
+          period: (period === "24h" || period === "7d" || period === "30d" ? period : "7d") as "24h" | "7d" | "30d" | "all",
+          operator_id: operator !== "all" ? operator : undefined,
+        },
+      }),
+    refetchInterval: 60_000,
+  });
+
+  const handleAnalyzeAll = async () => {
+    setAnalyzing(true);
+    try {
+      const r = await analyzeFn({ data: { operator_id: operator !== "all" ? operator : undefined } });
+      toast.success(`${r.analyzed} analisadas${r.failed ? `, ${r.failed} falhas` : ""}`);
+      qc.invalidateQueries({ queryKey: ["analyses"] });
+      qc.invalidateQueries({ queryKey: ["ai-report"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
 
   const cutoff = useMemo(() => {
     const d = new Date();
@@ -214,7 +246,7 @@ function RelatoriosPage() {
         }
       />
 
-      <main className="flex-1 space-y-6 p-4 md:p-6">
+      <main className="flex-1 space-y-4 p-4 md:p-6">
         <section className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[180px_1fr_auto]">
           <div>
             <Label className="text-[11px] uppercase text-muted-foreground">Período</Label>
@@ -243,68 +275,333 @@ function RelatoriosPage() {
           </div>
         </section>
 
-        <section>
-          <h2 className="mb-2 text-sm font-semibold">Resumo executivo</h2>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard label="Conversas" value={total ? String(total) : "—"} />
-            <MetricCard label="Tempo médio" value={avgResp ? formatDuration(avgResp) : "—"} />
-            <MetricCard label="Conversão" value={total ? `${convRate.toFixed(1)}%` : "—"} />
-            <MetricCard label="Score médio" value={total ? `${avgScore}/100` : "—"} />
+        <Tabs defaultValue="geral">
+          <TabsList>
+            <TabsTrigger value="geral">Visão Geral</TabsTrigger>
+            <TabsTrigger value="operadores">Por Operador</TabsTrigger>
+            <TabsTrigger value="ia">✨ Análise IA</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="geral" className="space-y-6 mt-4">
+            <section>
+              <h2 className="mb-2 text-sm font-semibold">Resumo executivo</h2>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <MetricCard label="Conversas" value={total ? String(total) : "—"} />
+                <MetricCard label="Tempo médio" value={avgResp ? formatDuration(avgResp) : "—"} />
+                <MetricCard label="Conversão" value={total ? `${convRate.toFixed(1)}%` : "—"} />
+                <MetricCard label="Score médio" value={total ? `${avgScore}/100` : "—"} />
+              </div>
+            </section>
+
+            {aiSummary && (
+              <section className="rounded-lg border border-border bg-card p-4">
+                <h2 className="mb-3 text-sm font-semibold">✨ Insights da IA</h2>
+                <div className="grid gap-3 sm:grid-cols-3 text-sm">
+                  <div>
+                    <div className="text-[11px] uppercase text-muted-foreground">Score médio IA</div>
+                    <div className="text-lg font-semibold">{aiSummary.averageScore}/100</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase text-muted-foreground">Sentimento</div>
+                    <div className="text-sm">
+                      😊 {aiSummary.sentimentCounts.positive} · 😐 {aiSummary.sentimentCounts.neutral} · 😞 {aiSummary.sentimentCounts.negative}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] uppercase text-muted-foreground mb-1">Top tópicos</div>
+                    <div className="flex flex-wrap gap-1">
+                      {aiSummary.topTopics.slice(0, 3).map((t) => (
+                        <Badge key={t.topic} variant="secondary">{t.topic} · {t.count}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            <section className="rounded-lg border border-border bg-card p-4">
+              <h2 className="mb-3 text-sm font-semibold">Ranking de score por operador</h2>
+              {ranking.length === 0 ? (
+                <div className="py-12 text-center">
+                  <FileBarChart className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+                  <p className="text-sm font-medium">Sem dados para exibir.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Cadastre operadores e receba conversas pelo webhook.</p>
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="text-[11px] uppercase text-muted-foreground">
+                    <tr><th className="py-2 text-left">Operador</th><th className="text-left">Conversas</th><th className="text-right">Score</th></tr>
+                  </thead>
+                  <tbody>
+                    {ranking.map((r) => (
+                      <tr key={r.Operador} className="border-t border-border">
+                        <td className="py-2">{r.Operador}</td>
+                        <td>{r.Conversas}</td>
+                        <td className="text-right font-medium tabular-nums">{r.Score}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
+          </TabsContent>
+
+          <TabsContent value="operadores" className="mt-4">
+            <OperatorReportTab
+              stats={stats}
+              metrics={aiReport?.operatorMetrics ?? []}
+              analyzing={analyzing}
+              onAnalyzeAll={handleAnalyzeAll}
+            />
+          </TabsContent>
+
+          <TabsContent value="ia" className="mt-4">
+            <AiReportTab
+              aiReport={aiReport}
+              analyzing={analyzing}
+              onAnalyzeAll={handleAnalyzeAll}
+            />
+          </TabsContent>
+        </Tabs>
+      </main>
+    </>
+
+  );
+}
+
+type OperatorMetric = {
+  operator_id: string;
+  total_analyzed: number | null;
+  total_ended: number | null;
+  avg_quality_score: number | null;
+  sentiment_positive: number | null;
+  sentiment_neutral: number | null;
+  sentiment_negative: number | null;
+  top_topics: unknown;
+  top_improvements: unknown;
+};
+
+type OpStat = {
+  id: string;
+  name: string;
+  total: number;
+  avgScore: number;
+  avgResp: number;
+  convRate: number;
+};
+
+function OperatorReportTab({
+  stats,
+  metrics,
+  analyzing,
+  onAnalyzeAll,
+}: {
+  stats: OpStat[];
+  metrics: OperatorMetric[];
+  analyzing: boolean;
+  onAnalyzeAll: () => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">Métricas consolidadas pela IA por operador</p>
+        <Button size="sm" variant="outline" onClick={onAnalyzeAll} disabled={analyzing}>
+          {analyzing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
+          Analisar pendentes
+        </Button>
+      </div>
+
+      {stats.length === 0 ? (
+        <div className="py-12 text-center text-sm text-muted-foreground">Sem operadores cadastrados.</div>
+      ) : (
+        stats.map((op) => {
+          const m = metrics.find((x) => x.operator_id === op.id);
+          return <OperatorAiCard key={op.id} op={op} m={m} />;
+        })
+      )}
+    </div>
+  );
+}
+
+function OperatorAiCard({ op, m }: { op: OpStat; m?: OperatorMetric }) {
+  const [open, setOpen] = useState(false);
+  const totalAi = m?.total_analyzed ?? 0;
+  const aiScore = m?.avg_quality_score != null ? Math.round(Number(m.avg_quality_score)) : null;
+  const totalSent = (m?.sentiment_positive ?? 0) + (m?.sentiment_neutral ?? 0) + (m?.sentiment_negative ?? 0);
+  const pct = (n: number) => (totalSent ? Math.round((n / totalSent) * 100) : 0);
+  const topics = Array.isArray(m?.top_topics) ? (m!.top_topics as Array<{ topic: string; count: number }>) : [];
+  const imps = Array.isArray(m?.top_improvements) ? (m!.top_improvements as Array<{ text: string; count: number }>) : [];
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between text-left">
+        <div>
+          <div className="font-semibold">{op.name}</div>
+          <div className="text-xs text-muted-foreground">
+            {op.total} conversas · Tempo médio {formatDuration(op.avgResp)}
           </div>
-        </section>
+        </div>
+        <div className="flex items-center gap-3 text-xs">
+          <Badge variant="secondary">SAC {op.avgScore}</Badge>
+          <Badge variant="secondary">IA {aiScore ?? "—"}</Badge>
+          {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </div>
+      </button>
 
-        {aiSummary && (
-          <section className="rounded-lg border border-border bg-card p-4">
-            <h2 className="mb-3 text-sm font-semibold">✨ Insights da IA</h2>
-            <div className="grid gap-3 sm:grid-cols-3 text-sm">
-              <div>
-                <div className="text-[11px] uppercase text-muted-foreground">Score médio IA</div>
-                <div className="text-lg font-semibold">{aiSummary.averageScore}/100</div>
-              </div>
-              <div>
-                <div className="text-[11px] uppercase text-muted-foreground">Sentimento</div>
-                <div className="text-sm">
-                  😊 {aiSummary.sentimentCounts.positive} · 😐 {aiSummary.sentimentCounts.neutral} · 😞 {aiSummary.sentimentCounts.negative}
-                </div>
-              </div>
-              <div>
-                <div className="text-[11px] uppercase text-muted-foreground mb-1">Top tópicos</div>
-                <div className="flex flex-wrap gap-1">
-                  {aiSummary.topTopics.slice(0, 3).map((t) => (
-                    <Badge key={t.topic} variant="secondary">{t.topic} · {t.count}</Badge>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        <section className="rounded-lg border border-border bg-card p-4">
-          <h2 className="mb-3 text-sm font-semibold">Ranking de score por operador</h2>
-          {ranking.length === 0 ? (
-            <div className="py-12 text-center">
-              <FileBarChart className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-              <p className="text-sm font-medium">Sem dados para exibir.</p>
-              <p className="mt-1 text-xs text-muted-foreground">Cadastre operadores e receba conversas pelo webhook.</p>
-            </div>
+      {open && (
+        <div className="mt-4 space-y-3 border-t border-border pt-4 text-sm">
+          {totalAi === 0 ? (
+            <p className="text-muted-foreground">Nenhuma análise de IA para este operador ainda.</p>
           ) : (
+            <>
+              <div className="text-xs text-muted-foreground">
+                Sentimento: 😊 {pct(m?.sentiment_positive ?? 0)}% · 😐 {pct(m?.sentiment_neutral ?? 0)}% · 😞 {pct(m?.sentiment_negative ?? 0)}%
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Encerradas pela IA: {m?.total_ended ?? 0} de {totalAi}
+              </div>
+              {topics.length > 0 && (
+                <div>
+                  <div className="text-[11px] uppercase text-muted-foreground mb-1">Tópicos mais abordados</div>
+                  <div className="flex flex-wrap gap-1">
+                    {topics.slice(0, 6).map((t) => (
+                      <Badge key={t.topic} variant="secondary">{t.topic} · {t.count}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {imps.length > 0 && (
+                <div>
+                  <div className="text-[11px] uppercase text-muted-foreground mb-1">💡 Top melhorias sugeridas</div>
+                  <ol className="list-decimal pl-5 space-y-0.5 text-sm">
+                    {imps.map((i, idx) => (
+                      <li key={idx}>{i.text} <span className="text-muted-foreground">({i.count}x)</span></li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type AiReport = {
+  total: number;
+  avgQualityScore: number;
+  ended: number;
+  ongoing: number;
+  sentiments: { positive: number; neutral: number; negative: number };
+  topTopics: Array<{ topic: string; count: number }>;
+  topImprovements: Array<{ text: string; count: number }>;
+  analyses: Array<{
+    id: string;
+    quality_score: number | null;
+    sentiment: string | null;
+    ended: boolean | null;
+    analyzed_at: string | null;
+    operators?: { name?: string } | null;
+  }>;
+};
+
+function AiReportTab({
+  aiReport,
+  analyzing,
+  onAnalyzeAll,
+}: {
+  aiReport: AiReport | undefined;
+  analyzing: boolean;
+  onAnalyzeAll: () => void;
+}) {
+  const total = aiReport?.total ?? 0;
+  const s = aiReport?.sentiments;
+  const predominant = s
+    ? s.positive >= s.neutral && s.positive >= s.negative
+      ? "😊 Positivo"
+      : s.negative > s.positive
+        ? "😞 Negativo"
+        : "😐 Neutro"
+    : "—";
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {total > 0 ? `${total} conversas analisadas no período` : "Nenhuma análise no período"}
+        </p>
+        <Button size="sm" onClick={onAnalyzeAll} disabled={analyzing}>
+          {analyzing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
+          Analisar pendentes
+        </Button>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Analisadas" value={total ? String(total) : "—"} />
+        <MetricCard label="Score médio IA" value={total ? `${aiReport!.avgQualityScore}/100` : "—"} />
+        <MetricCard label="Encerradas (IA)" value={total ? String(aiReport!.ended) : "—"} />
+        <MetricCard label="Sentimento" value={total ? predominant : "—"} />
+      </div>
+
+      {total > 0 && aiReport && (
+        <>
+          <section className="rounded-lg border border-border bg-card p-4">
+            <h3 className="mb-3 text-sm font-semibold">Tópicos mais abordados</h3>
+            {aiReport.topTopics.length === 0 ? (
+              <p className="text-sm text-muted-foreground">—</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {aiReport.topTopics.map((t) => (
+                  <Badge key={t.topic} variant="secondary">{t.topic} · {t.count}</Badge>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-lg border border-border bg-card p-4">
+            <h3 className="mb-3 text-sm font-semibold">💡 Top melhorias sugeridas</h3>
+            {aiReport.topImprovements.length === 0 ? (
+              <p className="text-sm text-muted-foreground">—</p>
+            ) : (
+              <ol className="list-decimal pl-5 space-y-1 text-sm">
+                {aiReport.topImprovements.map((i, idx) => (
+                  <li key={idx}>{i.text} <span className="text-muted-foreground">({i.count} conversas)</span></li>
+                ))}
+              </ol>
+            )}
+          </section>
+
+          <section className="rounded-lg border border-border bg-card p-4">
+            <h3 className="mb-3 text-sm font-semibold">Análises recentes</h3>
             <table className="w-full text-sm">
               <thead className="text-[11px] uppercase text-muted-foreground">
-                <tr><th className="py-2 text-left">Operador</th><th className="text-left">Conversas</th><th className="text-right">Score</th></tr>
+                <tr>
+                  <th className="py-2 text-left">Operador</th>
+                  <th className="text-left">Score IA</th>
+                  <th className="text-left">Sentimento</th>
+                  <th className="text-left">Encerrada</th>
+                  <th className="text-right">Data</th>
+                </tr>
               </thead>
               <tbody>
-                {ranking.map((r) => (
-                  <tr key={r.Operador} className="border-t border-border">
-                    <td className="py-2">{r.Operador}</td>
-                    <td>{r.Conversas}</td>
-                    <td className="text-right font-medium tabular-nums">{r.Score}</td>
+                {aiReport.analyses.slice(0, 20).map((a) => (
+                  <tr key={a.id} className="border-t border-border">
+                    <td className="py-2">{a.operators?.name ?? "—"}</td>
+                    <td>{a.quality_score ?? "—"}</td>
+                    <td>{a.sentiment ?? "—"}</td>
+                    <td>{a.ended ? "Sim" : "Não"}</td>
+                    <td className="text-right text-muted-foreground">
+                      {a.analyzed_at ? new Date(a.analyzed_at).toLocaleString("pt-BR") : "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          )}
-        </section>
-      </main>
-    </>
+          </section>
+        </>
+      )}
+    </div>
   );
 }
+
