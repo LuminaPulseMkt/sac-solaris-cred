@@ -8,7 +8,7 @@ import { AiAnalysisPanel } from "@/components/ai-analysis-panel";
 import { supabase } from "@/integrations/supabase/client";
 import { formatTime, formatDateTime, formatDuration } from "@/lib/sac/format";
 
-export const Route = createFileRoute("/conversas/$id")({
+export const Route = createFileRoute("/_authenticated/conversas/$id")({
   head: () => ({
     meta: [
       { title: "Conversa — SAC" },

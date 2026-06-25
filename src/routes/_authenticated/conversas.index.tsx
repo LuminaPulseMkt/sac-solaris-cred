@@ -25,7 +25,7 @@ import {
 import { listConversations, deleteConversation, deleteConversations } from "@/lib/operators.functions";
 import { formatDuration, formatDateTime } from "@/lib/sac/format";
 
-export const Route = createFileRoute("/conversas/")({
+export const Route = createFileRoute("/_authenticated/conversas/")({
   head: () => ({
     meta: [
       { title: "Conversas — SAC" },

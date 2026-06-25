@@ -16,7 +16,7 @@ import { MetricCard } from "@/components/metric-card";
 import { listConversations, listOperatorStats } from "@/lib/operators.functions";
 import { formatDuration } from "@/lib/sac/format";
 
-export const Route = createFileRoute("/dashboard")({
+export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
       { title: "Visão geral — SAC" },

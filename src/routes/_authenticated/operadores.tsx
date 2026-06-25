@@ -22,7 +22,7 @@ import { listOperatorStats, deleteOperator } from "@/lib/operators.functions";
 import { formatDuration, channelLabel } from "@/lib/sac/format";
 import { Link } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/operadores")({
+export const Route = createFileRoute("/_authenticated/operadores")({
   head: () => ({
     meta: [
       { title: "Operadores — SAC" },

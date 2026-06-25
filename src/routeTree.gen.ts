@@ -9,62 +9,65 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as RelatoriosRouteImport } from './routes/relatorios'
-import { Route as OperadoresRouteImport } from './routes/operadores'
-import { Route as IntegracaoRouteImport } from './routes/integracao'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
-import { Route as AlertasRouteImport } from './routes/alertas'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ConversasIndexRouteImport } from './routes/conversas.index'
-import { Route as ConversasIdRouteImport } from './routes/conversas.$id'
+import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
+import { Route as AuthenticatedOperadoresRouteImport } from './routes/_authenticated/operadores'
+import { Route as AuthenticatedIntegracaoRouteImport } from './routes/_authenticated/integracao'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
+import { Route as AuthenticatedAlertasRouteImport } from './routes/_authenticated/alertas'
+import { Route as AuthenticatedConversasIndexRouteImport } from './routes/_authenticated/conversas.index'
+import { Route as AuthenticatedConversasIdRouteImport } from './routes/_authenticated/conversas.$id'
 import { Route as ApiPublicWebhookRecvTokenRouteImport } from './routes/api/public/webhook/recv/$token'
 
-const RelatoriosRoute = RelatoriosRouteImport.update({
-  id: '/relatorios',
-  path: '/relatorios',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperadoresRoute = OperadoresRouteImport.update({
-  id: '/operadores',
-  path: '/operadores',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IntegracaoRoute = IntegracaoRouteImport.update({
-  id: '/integracao',
-  path: '/integracao',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
-  id: '/configuracoes',
-  path: '/configuracoes',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AlertasRoute = AlertasRouteImport.update({
-  id: '/alertas',
-  path: '/alertas',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ConversasIndexRoute = ConversasIndexRouteImport.update({
-  id: '/conversas/',
-  path: '/conversas/',
+const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
+  id: '/_authenticated/relatorios',
+  path: '/relatorios',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ConversasIdRoute = ConversasIdRouteImport.update({
-  id: '/conversas/$id',
-  path: '/conversas/$id',
+const AuthenticatedOperadoresRoute = AuthenticatedOperadoresRouteImport.update({
+  id: '/_authenticated/operadores',
+  path: '/operadores',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedIntegracaoRoute = AuthenticatedIntegracaoRouteImport.update({
+  id: '/_authenticated/integracao',
+  path: '/integracao',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/_authenticated/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedConfiguracoesRoute =
+  AuthenticatedConfiguracoesRouteImport.update({
+    id: '/_authenticated/configuracoes',
+    path: '/configuracoes',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedAlertasRoute = AuthenticatedAlertasRouteImport.update({
+  id: '/_authenticated/alertas',
+  path: '/alertas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedConversasIndexRoute =
+  AuthenticatedConversasIndexRouteImport.update({
+    id: '/_authenticated/conversas/',
+    path: '/conversas/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedConversasIdRoute =
+  AuthenticatedConversasIdRouteImport.update({
+    id: '/_authenticated/conversas/$id',
+    path: '/conversas/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicWebhookRecvTokenRoute =
   ApiPublicWebhookRecvTokenRouteImport.update({
     id: '/api/public/webhook/recv/$token',
@@ -74,39 +77,39 @@ const ApiPublicWebhookRecvTokenRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/alertas': typeof AlertasRoute
-  '/configuracoes': typeof ConfiguracoesRoute
-  '/dashboard': typeof DashboardRoute
-  '/integracao': typeof IntegracaoRoute
-  '/operadores': typeof OperadoresRoute
-  '/relatorios': typeof RelatoriosRoute
-  '/conversas/$id': typeof ConversasIdRoute
-  '/conversas/': typeof ConversasIndexRoute
+  '/alertas': typeof AuthenticatedAlertasRoute
+  '/configuracoes': typeof AuthenticatedConfiguracoesRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/integracao': typeof AuthenticatedIntegracaoRoute
+  '/operadores': typeof AuthenticatedOperadoresRoute
+  '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/conversas/$id': typeof AuthenticatedConversasIdRoute
+  '/conversas/': typeof AuthenticatedConversasIndexRoute
   '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/alertas': typeof AlertasRoute
-  '/configuracoes': typeof ConfiguracoesRoute
-  '/dashboard': typeof DashboardRoute
-  '/integracao': typeof IntegracaoRoute
-  '/operadores': typeof OperadoresRoute
-  '/relatorios': typeof RelatoriosRoute
-  '/conversas/$id': typeof ConversasIdRoute
-  '/conversas': typeof ConversasIndexRoute
+  '/alertas': typeof AuthenticatedAlertasRoute
+  '/configuracoes': typeof AuthenticatedConfiguracoesRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/integracao': typeof AuthenticatedIntegracaoRoute
+  '/operadores': typeof AuthenticatedOperadoresRoute
+  '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/conversas/$id': typeof AuthenticatedConversasIdRoute
+  '/conversas': typeof AuthenticatedConversasIndexRoute
   '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/alertas': typeof AlertasRoute
-  '/configuracoes': typeof ConfiguracoesRoute
-  '/dashboard': typeof DashboardRoute
-  '/integracao': typeof IntegracaoRoute
-  '/operadores': typeof OperadoresRoute
-  '/relatorios': typeof RelatoriosRoute
-  '/conversas/$id': typeof ConversasIdRoute
-  '/conversas/': typeof ConversasIndexRoute
+  '/_authenticated/alertas': typeof AuthenticatedAlertasRoute
+  '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/integracao': typeof AuthenticatedIntegracaoRoute
+  '/_authenticated/operadores': typeof AuthenticatedOperadoresRoute
+  '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/_authenticated/conversas/$id': typeof AuthenticatedConversasIdRoute
+  '/_authenticated/conversas/': typeof AuthenticatedConversasIndexRoute
   '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
 }
 export interface FileRouteTypes {
@@ -137,74 +140,32 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/alertas'
-    | '/configuracoes'
-    | '/dashboard'
-    | '/integracao'
-    | '/operadores'
-    | '/relatorios'
-    | '/conversas/$id'
-    | '/conversas/'
+    | '/_authenticated/alertas'
+    | '/_authenticated/configuracoes'
+    | '/_authenticated/dashboard'
+    | '/_authenticated/integracao'
+    | '/_authenticated/operadores'
+    | '/_authenticated/relatorios'
+    | '/_authenticated/conversas/$id'
+    | '/_authenticated/conversas/'
     | '/api/public/webhook/recv/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AlertasRoute: typeof AlertasRoute
-  ConfiguracoesRoute: typeof ConfiguracoesRoute
-  DashboardRoute: typeof DashboardRoute
-  IntegracaoRoute: typeof IntegracaoRoute
-  OperadoresRoute: typeof OperadoresRoute
-  RelatoriosRoute: typeof RelatoriosRoute
-  ConversasIdRoute: typeof ConversasIdRoute
-  ConversasIndexRoute: typeof ConversasIndexRoute
+  AuthenticatedAlertasRoute: typeof AuthenticatedAlertasRoute
+  AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedIntegracaoRoute: typeof AuthenticatedIntegracaoRoute
+  AuthenticatedOperadoresRoute: typeof AuthenticatedOperadoresRoute
+  AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
+  AuthenticatedConversasIdRoute: typeof AuthenticatedConversasIdRoute
+  AuthenticatedConversasIndexRoute: typeof AuthenticatedConversasIndexRoute
   ApiPublicWebhookRecvTokenRoute: typeof ApiPublicWebhookRecvTokenRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/relatorios': {
-      id: '/relatorios'
-      path: '/relatorios'
-      fullPath: '/relatorios'
-      preLoaderRoute: typeof RelatoriosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operadores': {
-      id: '/operadores'
-      path: '/operadores'
-      fullPath: '/operadores'
-      preLoaderRoute: typeof OperadoresRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/integracao': {
-      id: '/integracao'
-      path: '/integracao'
-      fullPath: '/integracao'
-      preLoaderRoute: typeof IntegracaoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/configuracoes': {
-      id: '/configuracoes'
-      path: '/configuracoes'
-      fullPath: '/configuracoes'
-      preLoaderRoute: typeof ConfiguracoesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/alertas': {
-      id: '/alertas'
-      path: '/alertas'
-      fullPath: '/alertas'
-      preLoaderRoute: typeof AlertasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -212,18 +173,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/conversas/': {
-      id: '/conversas/'
-      path: '/conversas'
-      fullPath: '/conversas/'
-      preLoaderRoute: typeof ConversasIndexRouteImport
+    '/_authenticated/relatorios': {
+      id: '/_authenticated/relatorios'
+      path: '/relatorios'
+      fullPath: '/relatorios'
+      preLoaderRoute: typeof AuthenticatedRelatoriosRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/conversas/$id': {
-      id: '/conversas/$id'
+    '/_authenticated/operadores': {
+      id: '/_authenticated/operadores'
+      path: '/operadores'
+      fullPath: '/operadores'
+      preLoaderRoute: typeof AuthenticatedOperadoresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/integracao': {
+      id: '/_authenticated/integracao'
+      path: '/integracao'
+      fullPath: '/integracao'
+      preLoaderRoute: typeof AuthenticatedIntegracaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/configuracoes': {
+      id: '/_authenticated/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/alertas': {
+      id: '/_authenticated/alertas'
+      path: '/alertas'
+      fullPath: '/alertas'
+      preLoaderRoute: typeof AuthenticatedAlertasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/conversas/': {
+      id: '/_authenticated/conversas/'
+      path: '/conversas'
+      fullPath: '/conversas/'
+      preLoaderRoute: typeof AuthenticatedConversasIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/conversas/$id': {
+      id: '/_authenticated/conversas/$id'
       path: '/conversas/$id'
       fullPath: '/conversas/$id'
-      preLoaderRoute: typeof ConversasIdRouteImport
+      preLoaderRoute: typeof AuthenticatedConversasIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/webhook/recv/$token': {
@@ -238,26 +241,16 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AlertasRoute: AlertasRoute,
-  ConfiguracoesRoute: ConfiguracoesRoute,
-  DashboardRoute: DashboardRoute,
-  IntegracaoRoute: IntegracaoRoute,
-  OperadoresRoute: OperadoresRoute,
-  RelatoriosRoute: RelatoriosRoute,
-  ConversasIdRoute: ConversasIdRoute,
-  ConversasIndexRoute: ConversasIndexRoute,
+  AuthenticatedAlertasRoute: AuthenticatedAlertasRoute,
+  AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedIntegracaoRoute: AuthenticatedIntegracaoRoute,
+  AuthenticatedOperadoresRoute: AuthenticatedOperadoresRoute,
+  AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
+  AuthenticatedConversasIdRoute: AuthenticatedConversasIdRoute,
+  AuthenticatedConversasIndexRoute: AuthenticatedConversasIndexRoute,
   ApiPublicWebhookRecvTokenRoute: ApiPublicWebhookRecvTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

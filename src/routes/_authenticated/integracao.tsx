@@ -45,7 +45,7 @@ type TestResult = {
 import { deriveOperatorState, operatorStateMeta } from "@/lib/sac/operator-status";
 import { formatDateTime } from "@/lib/sac/format";
 
-export const Route = createFileRoute("/integracao")({
+export const Route = createFileRoute("/_authenticated/integracao")({
   head: () => ({
     meta: [
       { title: "Integração Evolution API — SAC" },
