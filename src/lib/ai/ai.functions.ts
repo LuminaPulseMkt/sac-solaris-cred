@@ -1,14 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-export const analyzeConversationFn = createServerFn({ method: "POST" })
+export const analyzeConversationFn = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ conversationId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { analyzeConversationById } = await import("@/lib/ai/analyze.server");
     return analyzeConversationById(data.conversationId);
   });
 
-export const getConversationAnalysis = createServerFn({ method: "GET" })
+export const getConversationAnalysis = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ conversationId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -22,7 +23,7 @@ export const getConversationAnalysis = createServerFn({ method: "GET" })
     return rows?.[0] ?? null;
   });
 
-export const listAnalyses = createServerFn({ method: "GET" })
+export const listAnalyses = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
   .inputValidator((input) =>
     z.object({ since: z.string().datetime().optional(), operatorId: z.string().uuid().optional() }).parse(input ?? {}),
   )
@@ -36,13 +37,13 @@ export const listAnalyses = createServerFn({ method: "GET" })
     return rows ?? [];
   });
 
-export const isOpenAiConfigured = createServerFn({ method: "GET" }).handler(async () => {
+export const isOpenAiConfigured = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin.from("app_settings").select("value").eq("key", "openai_api_key").maybeSingle();
   return { configured: Boolean(data?.value && data.value.trim().length > 0) };
 });
 
-export const analyzeAllPending = createServerFn({ method: "POST" })
+export const analyzeAllPending = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ operator_id: z.string().uuid().optional() }).parse(input ?? {}))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -87,7 +88,7 @@ export const analyzeAllPending = createServerFn({ method: "POST" })
     return { analyzed, failed, total: pending?.length ?? 0, firstError };
   });
 
-export const getOperatorAiReport = createServerFn({ method: "GET" })
+export const getOperatorAiReport = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
   .inputValidator((input) =>
     z
       .object({

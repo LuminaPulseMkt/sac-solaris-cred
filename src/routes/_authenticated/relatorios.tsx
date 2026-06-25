@@ -20,7 +20,7 @@ import { generateReportPdf, type ReportAnalysisSummary } from "@/lib/reports/gen
 import { formatDuration } from "@/lib/sac/format";
 
 
-export const Route = createFileRoute("/relatorios")({
+export const Route = createFileRoute("/_authenticated/relatorios")({
   head: () => ({
     meta: [
       { title: "Relatórios — SAC" },

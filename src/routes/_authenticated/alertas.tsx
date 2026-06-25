@@ -14,7 +14,7 @@ import { listConversations } from "@/lib/operators.functions";
 import { listAnalyses } from "@/lib/ai/ai.functions";
 import { formatDuration, formatDateTime } from "@/lib/sac/format";
 
-export const Route = createFileRoute("/alertas")({
+export const Route = createFileRoute("/_authenticated/alertas")({
   head: () => ({
     meta: [
       { title: "Alertas — SAC" },

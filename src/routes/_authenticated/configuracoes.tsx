@@ -21,7 +21,7 @@ import {
   getActiveInstances,
 } from "@/lib/settings/settings.functions";
 
-export const Route = createFileRoute("/configuracoes")({
+export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({
     meta: [
       { title: "Configurações — SAC" },
