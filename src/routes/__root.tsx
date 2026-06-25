@@ -122,15 +122,8 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <SidebarProvider>
-        <div className="flex min-h-screen w-full bg-background">
-          <AppSidebar />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <Outlet />
-          </div>
-        </div>
-        <Toaster />
-      </SidebarProvider>
+      <Outlet />
+      <Toaster />
     </QueryClientProvider>
   );
 }
