@@ -4,10 +4,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SolarisLogo } from "@/components/solaris-logo";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
+  head: () => ({
+    meta: [
+      { title: "Entrar — Solaris SAC" },
+      { name: "description", content: "Acesso restrito ao painel Solaris Analytics Chat." },
+    ],
+  }),
   component: AuthPage,
 });
 
@@ -16,17 +24,25 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) navigate({ to: "/dashboard" });
+      if (data.user) {
+        navigate({ to: "/dashboard" });
+      } else {
+        setChecking(false);
+      }
     });
   }, [navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
     setLoading(false);
     if (error) {
       toast.error("Falha no login", { description: error.message });
@@ -36,44 +52,74 @@ function AuthPage() {
     navigate({ to: "/dashboard" });
   }
 
+  if (checking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-sm space-y-4 rounded-lg border border-border bg-card p-6 shadow-sm"
-      >
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">Entrar no SAC</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+      <div className="w-full max-w-sm space-y-6">
+        <div className="flex justify-center">
+          <SolarisLogo />
+        </div>
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-sm"
+        >
+          <div className="space-y-1">
+            <h1 className="text-lg font-semibold text-foreground">Entrar</h1>
+            <p className="text-sm text-muted-foreground">
+              Acesse o painel com suas credenciais.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="voce@empresa.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              autoFocus
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password">Senha</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              required
+              minLength={6}
+            />
+          </div>
+
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Entrando…
+              </>
+            ) : (
+              "Entrar"
+            )}
+          </Button>
+
+          <p className="pt-2 text-center text-xs text-muted-foreground">
             Acesso restrito. Solicite credenciais ao administrador.
           </p>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Senha</Label>
-          <Input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            required
-          />
-        </div>
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Entrando..." : "Entrar"}
-        </Button>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }
