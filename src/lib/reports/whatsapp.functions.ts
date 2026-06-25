@@ -36,7 +36,7 @@ function buildCaption(period: string, m: z.infer<typeof schema>["metrics"]): str
   ].join("\n");
 }
 
-export const sendReportViaWhatsapp = createServerFn({ method: "POST" })
+export const sendReportViaWhatsapp = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((input) => schema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
