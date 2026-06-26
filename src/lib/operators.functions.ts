@@ -174,6 +174,34 @@ export const deleteConversations = createServerFn({ method: "POST" }).middleware
     return { ok: true, count: data.ids.length };
   });
 
+const conversationIdSchema = z.object({ id: z.string().uuid() });
+
+export const getConversationDetail = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
+  .inputValidator((input) => conversationIdSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: conversation, error } = await supabaseAdmin
+      .from("conversations")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return conversation ?? null;
+  });
+
+export const listConversationMessages = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
+  .inputValidator((input) => conversationIdSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: messages, error } = await supabaseAdmin
+      .from("messages")
+      .select("*")
+      .eq("conversation_id", data.id)
+      .order("sent_at", { ascending: true });
+    if (error) throw new Error(error.message);
+    return messages ?? [];
+  });
+
 export const listConversations = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin
