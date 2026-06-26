@@ -1,16 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AppHeader } from "@/components/app-header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { BellRing, Clock, TrendingDown, Users, CheckCircle2 } from "lucide-react";
+import { BellRing, Clock, TrendingDown, Users, CheckCircle2, WifiOff, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useSettingsStore } from "@/stores/settings";
-import { listConversations } from "@/lib/operators.functions";
+import { listConversations, listWebhookHealth, regenerateToken } from "@/lib/operators.functions";
 import { listAnalyses } from "@/lib/ai/ai.functions";
 import { formatDuration, formatDateTime } from "@/lib/sac/format";
 
@@ -86,9 +86,12 @@ function AlertCard({ alert }: { alert: AlertItem }) {
 }
 
 function AlertasPage() {
+  const qc = useQueryClient();
   const { rules, setRules } = useSettingsStore();
   const convsFn = useServerFn(listConversations);
   const analysesFn = useServerFn(listAnalyses);
+  const healthFn = useServerFn(listWebhookHealth);
+  const regenFn = useServerFn(regenerateToken);
 
   const { data: convs = [] } = useQuery({
     queryKey: ["conversations"],
@@ -100,6 +103,27 @@ function AlertasPage() {
     queryFn: () => analysesFn({ data: {} }),
     refetchInterval: 60_000,
   });
+  const { data: health = [] } = useQuery({
+    queryKey: ["webhook-health"],
+    queryFn: () => healthFn(),
+    refetchInterval: 60_000,
+  });
+
+  const silentOperators = useMemo(
+    () => health.filter((o) => o.status !== "inactive" && o.total24h === 0),
+    [health],
+  );
+
+  async function handleRegenerate(id: string, name: string) {
+    try {
+      await regenFn({ data: { id } });
+      toast.success(`Token regenerado para ${name}. Atualize o webhook na Evolution.`);
+      qc.invalidateQueries({ queryKey: ["webhook-health"] });
+      qc.invalidateQueries({ queryKey: ["operators"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao regenerar token");
+    }
+  }
 
   const alerts = useMemo<AlertItem[]>(() => {
     const result: AlertItem[] = [];
@@ -207,9 +231,53 @@ function AlertasPage() {
       <main className="grid flex-1 gap-6 p-4 md:p-6 lg:grid-cols-[1.4fr_1fr]">
 
         {/* ── Lista de alertas ── */}
-        <section>
+        <section className="space-y-4">
+          {/* Saúde dos webhooks */}
+          <div className={`rounded-lg border p-4 ${silentOperators.length > 0 ? "border-danger/40 bg-danger/5" : "border-border bg-card"}`}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <WifiOff className={`h-4 w-4 ${silentOperators.length > 0 ? "text-danger" : "text-muted-foreground"}`} />
+                <h2 className="text-sm font-semibold">Saúde dos webhooks (24h)</h2>
+              </div>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${silentOperators.length > 0 ? "bg-danger/15 text-danger" : "bg-success/15 text-success"}`}>
+                {silentOperators.length > 0 ? `${silentOperators.length} sem eventos` : "Todos ativos"}
+              </span>
+            </div>
+            {silentOperators.length === 0 ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Todos os operadores ativos receberam eventos nas últimas 24h.
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {silentOperators.map((op) => (
+                  <li key={op.id} className="flex items-center justify-between gap-3 rounded-md bg-background/60 p-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{op.name}</p>
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        Instância: {op.instance_name} · Último evento: {op.last_received_at ? formatDateTime(op.last_received_at) : "nunca"}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1 text-xs"
+                        onClick={() => handleRegenerate(op.id, op.name)}
+                      >
+                        <RefreshCw className="h-3 w-3" /> Regerar token
+                      </Button>
+                      <Button asChild size="sm" className="h-7 bg-brand text-brand-foreground hover:bg-brand-strong text-xs">
+                        <Link to="/integracao">Reconectar</Link>
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           {alerts.length === 0 ? (
-            <div className="flex h-full min-h-[240px] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card text-center">
+            <div className="flex min-h-[180px] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card text-center">
               <CheckCircle2 className="mb-3 h-8 w-8 text-success" />
               <p className="text-sm font-medium">Tudo certo por aqui.</p>
               <p className="mt-1 text-xs text-muted-foreground">
