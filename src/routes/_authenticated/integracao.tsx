@@ -373,7 +373,106 @@ function OperatorsList({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EditOperatorDialog
+        operator={toEdit}
+        onClose={() => setToEdit(null)}
+        onSaved={() => {
+          setToEdit(null);
+          onChange();
+        }}
+      />
     </>
+  );
+}
+
+function EditOperatorDialog({
+  operator,
+  onClose,
+  onSaved,
+}: {
+  operator: Operator | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const updateFn = useServerFn(updateOperator);
+  const [name, setName] = useState("");
+  const [instance, setInstance] = useState("");
+  const [channel, setChannel] = useState("whatsapp");
+  const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (operator) {
+      setName(operator.name ?? "");
+      setInstance(operator.instance_name ?? "");
+      setChannel(operator.channel ?? "whatsapp");
+      setDescription(operator.description ?? "");
+    }
+  }, [operator]);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!operator) return;
+    setSaving(true);
+    try {
+      await updateFn({
+        data: {
+          id: operator.id,
+          name,
+          instance_name: instance,
+          channel,
+          description: description || null,
+        },
+      });
+      toast.success("Operador atualizado");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={!!operator} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Editar operador</DialogTitle></DialogHeader>
+        <form onSubmit={handleSave} className="space-y-3">
+          <div>
+            <Label htmlFor="edit-name">Nome *</Label>
+            <Input id="edit-name" value={name} onChange={(e) => setName(e.target.value)} required className="mt-1" />
+          </div>
+          <div>
+            <Label htmlFor="edit-instance">Instância Evolution *</Label>
+            <Input id="edit-instance" value={instance} onChange={(e) => setInstance(e.target.value)} required className="mt-1 font-mono" />
+            <p className="mt-1 text-xs text-muted-foreground">Deve bater exatamente com o nome da instância na Evolution API.</p>
+          </div>
+          <div>
+            <Label htmlFor="edit-channel">Canal *</Label>
+            <Select value={channel} onValueChange={setChannel}>
+              <SelectTrigger id="edit-channel" className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                <SelectItem value="chat">Chat</SelectItem>
+                <SelectItem value="email">E-mail</SelectItem>
+                <SelectItem value="instagram">Instagram</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="edit-desc">Descrição</Label>
+            <Textarea id="edit-desc" value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1" rows={2} />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" disabled={saving} className="bg-brand text-brand-foreground hover:bg-brand-strong">
+              {saving ? "Salvando…" : "Salvar alterações"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
