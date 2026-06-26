@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Image as ImageIcon, Mic, FileText, MapPin, Sticker, Video } from "lucide-react";
+import { AlertCircle, ArrowLeft, Image as ImageIcon, Mic, FileText, MapPin, Sticker, Video } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { ScoreBar } from "@/components/score-bar";
 import { AiAnalysisPanel } from "@/components/ai-analysis-panel";
@@ -150,7 +150,12 @@ function ConversationChatPage() {
             <h2 className="font-semibold">Mensagens</h2>
           </div>
           <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
-            {messages.length === 0 ? (
+            {msgsQuery.isError ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-sm text-danger">
+                <AlertCircle className="h-4 w-4" />
+                Erro ao carregar mensagens. Atualize a página e tente novamente.
+              </div>
+            ) : messages.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
                 Nenhuma mensagem ainda.
               </p>
