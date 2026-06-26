@@ -309,6 +309,14 @@ function OperatorsList({
                       <Button
                         size="sm"
                         variant="ghost"
+                        title="Editar"
+                        onClick={() => setToEdit(op)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
                         title="Excluir"
                         className="text-danger hover:bg-danger/10 hover:text-danger"
                         onClick={() => setToDelete(op)}
