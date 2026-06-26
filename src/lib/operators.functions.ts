@@ -228,3 +228,23 @@ export const listOperatorStats = createServerFn({ method: "GET" }).middleware([r
   });
   return stats;
 });
+
+export const listWebhookHealth = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: ops, error } = await supabaseAdmin
+    .from("operators")
+    .select("id, name, instance_name, channel, status, token, webhook_url, last_received_at")
+    .order("name", { ascending: true });
+  if (error) throw new Error(error.message);
+  const { data: logs } = await supabaseAdmin
+    .from("webhook_logs")
+    .select("operator_id, status_code, received_at")
+    .gte("received_at", since);
+  return (ops ?? []).map((op) => {
+    const ls = (logs ?? []).filter((l) => l.operator_id === op.id);
+    const total24h = ls.length;
+    const errors24h = ls.filter((l) => (l.status_code ?? 0) >= 400).length;
+    return { ...op, total24h, errors24h };
+  });
+});
