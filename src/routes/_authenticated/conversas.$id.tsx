@@ -1,11 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, Image as ImageIcon, Mic, FileText, MapPin, Sticker, Video } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { ScoreBar } from "@/components/score-bar";
 import { AiAnalysisPanel } from "@/components/ai-analysis-panel";
 import { supabase } from "@/integrations/supabase/client";
+import { getConversationDetail, listConversationMessages } from "@/lib/operators.functions";
 import { formatTime, formatDateTime, formatDuration } from "@/lib/sac/format";
 
 export const Route = createFileRoute("/_authenticated/conversas/$id")({
@@ -42,20 +44,6 @@ type Conversation = {
   operator_id: string;
 };
 
-async function fetchConversation(id: string): Promise<Conversation | null> {
-  const { data } = await supabase.from("conversations").select("*").eq("id", id).maybeSingle();
-  return (data as Conversation | null) ?? null;
-}
-
-async function fetchMessages(conversationId: string): Promise<Message[]> {
-  const { data } = await supabase
-    .from("messages")
-    .select("*")
-    .eq("conversation_id", conversationId)
-    .order("sent_at", { ascending: true });
-  return (data as Message[] | null) ?? [];
-}
-
 const typeIcon: Record<string, React.ReactNode> = {
   image: <ImageIcon size={14} />,
   audio: <Mic size={14} />,
@@ -75,17 +63,19 @@ function rtTone(seconds: number): string {
 function ConversationChatPage() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
+  const fetchConversation = useServerFn(getConversationDetail);
+  const fetchMessages = useServerFn(listConversationMessages);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const conv = useQuery({
     queryKey: ["conversation", id],
-    queryFn: () => fetchConversation(id),
+    queryFn: () => fetchConversation({ data: { id } }) as Promise<Conversation | null>,
     refetchInterval: 8_000,
   });
 
   const msgsQuery = useQuery({
     queryKey: ["messages", id],
-    queryFn: () => fetchMessages(id),
+    queryFn: () => fetchMessages({ data: { id } }) as Promise<Message[]>,
     refetchInterval: 5_000,
     placeholderData: (prev) => prev,
   });
