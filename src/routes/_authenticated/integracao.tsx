@@ -195,6 +195,7 @@ function OperatorsList({
   const deleteFn = useServerFn(deleteOperator);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [toDelete, setToDelete] = useState<Operator | null>(null);
+  const [toEdit, setToEdit] = useState<Operator | null>(null);
 
   async function confirmDelete() {
     if (!toDelete) return;
