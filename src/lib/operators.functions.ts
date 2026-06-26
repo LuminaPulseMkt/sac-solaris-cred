@@ -239,12 +239,12 @@ export const listWebhookHealth = createServerFn({ method: "GET" }).middleware([r
   if (error) throw new Error(error.message);
   const { data: logs } = await supabaseAdmin
     .from("webhook_logs")
-    .select("operator_id, status_code, received_at")
+    .select("operator_id, http_status, received_at")
     .gte("received_at", since);
   return (ops ?? []).map((op) => {
     const ls = (logs ?? []).filter((l) => l.operator_id === op.id);
     const total24h = ls.length;
-    const errors24h = ls.filter((l) => (l.status_code ?? 0) >= 400).length;
+    const errors24h = ls.filter((l) => (l.http_status ?? 0) >= 400).length;
     return { ...op, total24h, errors24h };
   });
 });
