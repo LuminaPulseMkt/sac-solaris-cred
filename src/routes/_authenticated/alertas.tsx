@@ -86,9 +86,12 @@ function AlertCard({ alert }: { alert: AlertItem }) {
 }
 
 function AlertasPage() {
+  const qc = useQueryClient();
   const { rules, setRules } = useSettingsStore();
   const convsFn = useServerFn(listConversations);
   const analysesFn = useServerFn(listAnalyses);
+  const healthFn = useServerFn(listWebhookHealth);
+  const regenFn = useServerFn(regenerateToken);
 
   const { data: convs = [] } = useQuery({
     queryKey: ["conversations"],
@@ -100,6 +103,27 @@ function AlertasPage() {
     queryFn: () => analysesFn({ data: {} }),
     refetchInterval: 60_000,
   });
+  const { data: health = [] } = useQuery({
+    queryKey: ["webhook-health"],
+    queryFn: () => healthFn(),
+    refetchInterval: 60_000,
+  });
+
+  const silentOperators = useMemo(
+    () => health.filter((o) => o.status !== "inactive" && o.total24h === 0),
+    [health],
+  );
+
+  async function handleRegenerate(id: string, name: string) {
+    try {
+      await regenFn({ data: { id } });
+      toast.success(`Token regenerado para ${name}. Atualize o webhook na Evolution.`);
+      qc.invalidateQueries({ queryKey: ["webhook-health"] });
+      qc.invalidateQueries({ queryKey: ["operators"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao regenerar token");
+    }
+  }
 
   const alerts = useMemo<AlertItem[]>(() => {
     const result: AlertItem[] = [];
