@@ -230,16 +230,28 @@ function IntegracoesTab() {
 
   const settings = useQuery({ queryKey: ["settings"], queryFn: () => fetchSettings() });
   const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    status: number;
+    statusText: string;
+    error?: string | null;
+    instances: string[];
+    url: string;
+  } | null>(null);
   const invalidate = () => qc.invalidateQueries({ queryKey: ["settings"] });
 
   const handleTest = async () => {
     setTesting(true);
+    setTestResult(null);
     try {
       const r = await testEvo();
-      if (r.success) toast.success(`Conectado — ${r.instances.length} instâncias`);
-      else toast.error(r.error || "Falha ao conectar");
+      setTestResult(r);
+      if (r.success) toast.success(`HTTP ${r.status} — ${r.instances.length} instâncias`);
+      else toast.error(`HTTP ${r.status || "—"}: ${r.error || "Falha ao conectar"}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha");
+      const msg = e instanceof Error ? e.message : "Falha";
+      setTestResult({ success: false, status: 0, statusText: "", error: msg, instances: [], url: "" });
+      toast.error(msg);
     } finally {
       setTesting(false);
     }
