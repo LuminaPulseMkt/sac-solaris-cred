@@ -207,8 +207,8 @@ export const listConversations = createServerFn({ method: "GET" }).middleware([r
   const { data, error } = await supabaseAdmin
     .from("conversations")
     .select("*, operators(name, instance_name)")
-    .order("started_at", { ascending: false })
-    .limit(500);
+    .order("updated_at", { ascending: false })
+    .limit(1000);
   if (error) throw new Error(error.message);
   return data ?? [];
 });
