@@ -2,6 +2,43 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
+export const testWhisperTranscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        base64: z.string().min(10),
+        mimeType: z.string().default("audio/ogg"),
+        durationSeconds: z.number().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const started = Date.now();
+    try {
+      const { transcribeAudio } = await import("@/lib/ai/transcribe.server");
+      const text = await transcribeAudio({
+        base64: data.base64,
+        mimeType: data.mimeType,
+        durationSeconds: data.durationSeconds,
+      });
+      return {
+        ok: Boolean(text),
+        text: text ?? null,
+        elapsedMs: Date.now() - started,
+        error: text ? null : "Whisper retornou vazio (veja logs do servidor)",
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        text: null,
+        elapsedMs: Date.now() - started,
+        error: e instanceof Error ? e.message : String(e),
+      };
+    }
+  });
+
+
 export const analyzeConversationFn = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ conversationId: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {

@@ -20,6 +20,7 @@ import {
   testEvolutionConnection,
   getActiveInstances,
 } from "@/lib/settings/settings.functions";
+import { testWhisperTranscription } from "@/lib/ai/ai.functions";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({
@@ -319,11 +320,94 @@ function IntegracoesTab() {
         </div>
       </section>
 
+      <WhisperTestSection />
+
       <section className="rounded-lg border border-border bg-card p-4 space-y-3">
         <h2 className="text-sm font-semibold">🧠 Análise automática</h2>
         <AutoAnalyzeToggle initial={values.ai_auto_analyze === "true"} onSaved={invalidate} />
       </section>
     </div>
+  );
+}
+
+function WhisperTestSection() {
+  const transcribe = useServerFn(testWhisperTranscription);
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{
+    ok: boolean;
+    text: string | null;
+    elapsedMs: number;
+    error: string | null;
+  } | null>(null);
+
+  const handleRun = async () => {
+    if (!file) return toast.error("Selecione um arquivo de áudio");
+    if (file.size > 24 * 1024 * 1024) return toast.error("Áudio acima de 24MB");
+    setBusy(true);
+    setResult(null);
+    try {
+      const buf = await file.arrayBuffer();
+      let bin = "";
+      const bytes = new Uint8Array(buf);
+      for (let i = 0; i < bytes.length; i += 0x8000) {
+        bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      }
+      const base64 = btoa(bin);
+      const r = await transcribe({
+        data: { base64, mimeType: file.type || "audio/ogg" },
+      });
+      setResult(r);
+      if (r.ok) toast.success(`Whisper OK em ${r.elapsedMs}ms`);
+      else toast.error(r.error || "Falha na transcrição");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Falha";
+      setResult({ ok: false, text: null, elapsedMs: 0, error: msg });
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-4 space-y-3">
+      <h2 className="text-sm font-semibold">🎤 Testar transcrição (Whisper)</h2>
+      <p className="text-xs text-muted-foreground">
+        Envia um áudio direto ao Whisper (mesmo módulo usado pelo webhook) e confirma se a chave
+        OpenAI e o pipeline de transcrição estão funcionando.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          type="file"
+          accept="audio/*"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          className="h-9 max-w-md"
+        />
+        <Button size="sm" onClick={handleRun} disabled={busy || !file}>
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Testar"}
+        </Button>
+      </div>
+      {result && (
+        <div
+          className={`rounded-md border p-3 text-xs ${
+            result.ok
+              ? "border-success/30 bg-success/10 text-success"
+              : "border-destructive/30 bg-destructive/10 text-destructive"
+          }`}
+        >
+          <div className="font-mono font-semibold">
+            {result.ok ? "✅" : "❌"} Whisper · {result.elapsedMs}ms
+          </div>
+          {result.ok ? (
+            <div className="mt-1 whitespace-pre-wrap break-words text-foreground">
+              🎤 {result.text}
+            </div>
+          ) : (
+            <div className="mt-1 break-words">{result.error}</div>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 
