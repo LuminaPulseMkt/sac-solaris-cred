@@ -212,7 +212,7 @@ export const transcribePendingAudios = createServerFn({ method: "POST" }).middle
 
     let q = supabaseAdmin
       .from("messages")
-      .select("id, raw_payload, message_type, audio_duration_s" as never)
+      .select("id, raw_payload, message_type, audio_duration_s, operators(instance_name)" as never)
       .eq("message_type", "audio")
       .or(
         "message_text.is.null,message_text.eq.[mídia],message_text.eq.[áudio],message_text.eq.[áudio não transcrito]",
@@ -229,7 +229,11 @@ export const transcribePendingAudios = createServerFn({ method: "POST" }).middle
       "@/lib/ai/transcribe.server"
     );
 
-    for (const msg of (msgs ?? []) as unknown as Array<{ id: string; raw_payload: unknown }>) {
+    for (const msg of (msgs ?? []) as unknown as Array<{
+      id: string;
+      raw_payload: unknown;
+      operators?: { instance_name?: string } | null;
+    }>) {
       try {
         const rawPayload = msg.raw_payload as Record<string, unknown> | null;
         const dataNode = (rawPayload as { data?: Record<string, unknown> })?.data;
@@ -243,8 +247,11 @@ export const transcribePendingAudios = createServerFn({ method: "POST" }).middle
           failed++;
           continue;
         }
+        // Preferir o instance_name do operador — o payload às vezes vem abreviado.
+        const instance =
+          msg.operators?.instance_name ?? (rawPayload as { instance?: string })?.instance ?? "";
         const preparedAudio = await prepareAudioForTranscription(audioInfo, {
-          instance: (rawPayload as { instance?: string })?.instance ?? "",
+          instance,
           messagePayload: dataNode,
         });
         const text = await transcribeAudio(preparedAudio);
