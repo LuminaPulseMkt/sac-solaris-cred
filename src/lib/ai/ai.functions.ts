@@ -190,7 +190,7 @@ export const transcribePendingAudios = createServerFn({ method: "POST" }).middle
 
     const { transcribeAudio, extractAudioFromPayload } = await import("@/lib/ai/transcribe.server");
 
-    for (const msg of (msgs ?? []) as Array<{ id: string; raw_payload: unknown }>) {
+    for (const msg of (msgs ?? []) as unknown as Array<{ id: string; raw_payload: unknown }>) {
       try {
         const rawPayload = msg.raw_payload as Record<string, unknown> | null;
         const msgData = (rawPayload as { data?: { message?: Record<string, unknown> } })?.data?.message;
