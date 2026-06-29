@@ -28,6 +28,8 @@ type Message = {
   message_type: string;
   sent_at: string;
   response_time_s: number | null;
+  transcription_status?: string | null;
+  audio_duration_s?: number | null;
 };
 
 type Conversation = {
@@ -184,10 +186,31 @@ function ConversationChatPage() {
                             : "bg-muted rounded-bl-none"
                         }`}
                       >
-                        <div className="flex items-center gap-1.5">
-                          {m.message_type !== "text" && typeIcon[m.message_type]}
-                          <span>{m.message_text}</span>
-                        </div>
+                        {m.message_type === "audio" ? (
+                          <div className="flex flex-col gap-1">
+                            {m.transcription_status === "done" ? (
+                              <div className="flex items-start gap-1.5">
+                                <Mic size={14} className="mt-0.5 shrink-0 opacity-70" />
+                                <span className="italic">{m.message_text?.replace(/^🎤\s*/, "") ?? ""}</span>
+                              </div>
+                            ) : m.transcription_status === "failed" ? (
+                              <div className="flex items-center gap-1.5 opacity-70">
+                                <Mic size={14} />
+                                <span>Áudio não transcrito</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5">
+                                <Mic size={14} />
+                                <span>🎤 Áudio{m.audio_duration_s ? ` · ${m.audio_duration_s}s` : ""}</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            {m.message_type !== "text" && typeIcon[m.message_type]}
+                            <span>{m.message_text}</span>
+                          </div>
+                        )}
                         <div className={`text-[10px] mt-1 opacity-70 ${isOp ? "text-right" : "text-left"}`}>
                           {formatTime(m.sent_at)}
                         </div>
