@@ -178,7 +178,9 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
             transcriptionStatus = "pending";
 
             const transcribed = await prepareAudioForTranscription(audioInfo, {
-              instance: payload.instance ?? operator.instance_name,
+              // Sempre usar o instance_name do operador — payload.instance pode vir abreviado
+              // (ex.: "Thiago") enquanto a Evolution só conhece "Thiago Cred".
+              instance: operator.instance_name || payload.instance || "",
               messagePayload: payload.data,
             })
               .then((preparedAudio) => transcribeAudio(preparedAudio))
