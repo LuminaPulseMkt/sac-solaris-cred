@@ -211,6 +211,7 @@ function DashboardPage() {
             label="Conversas hoje"
             value={String(kpis.today)}
             icon={<MessagesSquare className="h-3.5 w-3.5" />}
+            hint={`${kpis.todayNew} novas sessões`}
           />
           <MetricCard
             label="Tempo médio de resposta"
