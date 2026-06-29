@@ -229,7 +229,7 @@ export async function analyzeConversationById(conversationId: string): Promise<C
 
     const { data: msgs } = await supabaseAdmin
       .from("messages")
-      .select("from_role, message_text, sent_at, response_time_s, message_type, transcription_status")
+      .select("from_role, message_text, sent_at, response_time_s, message_type, transcription_status" as never)
       .eq("conversation_id", conversationId)
       .order("sent_at", { ascending: true });
 
