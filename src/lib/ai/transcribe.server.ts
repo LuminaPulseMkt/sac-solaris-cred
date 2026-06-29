@@ -39,6 +39,13 @@ function extensionForMimeType(mimeType?: string): string {
   return extMap[mime] ?? "ogg";
 }
 
+function parseDataUri(value?: string): { mimeType?: string; base64?: string } {
+  if (!value) return {};
+  const match = value.match(/^data:([^;,]+)(?:;[^,]*)?,(.+)$/s);
+  if (!match) return { base64: value };
+  return { mimeType: normalizeMimeType(match[1]), base64: match[2] };
+}
+
 function prefersEvolutionConversion(params: AudioTranscriptionInput): boolean {
   const rawMime = params.mimeType ?? "";
   const mime = normalizeMimeType(rawMime);
@@ -156,20 +163,29 @@ export async function fetchEvolutionMediaBase64(params: {
       console.warn("[fetchEvolutionMediaBase64] HTTP", res.status, await res.text().catch(() => ""));
       return null;
     }
-    const json = (await res.json()) as unknown;
+    const bodyText = await res.text();
+    let json: unknown = null;
+    try {
+      json = JSON.parse(bodyText) as unknown;
+    } catch {
+      json = null;
+    }
     const base64 =
       readNestedString(json, ["base64"]) ??
+      readNestedString(json, ["data"]) ??
       readNestedString(json, ["data", "base64"]) ??
-      readNestedString(json, ["media", "base64"]);
+      readNestedString(json, ["media", "base64"]) ??
+      (json ? undefined : bodyText.trim());
     const mimetype =
       readNestedString(json, ["mimetype"]) ??
       readNestedString(json, ["mimeType"]) ??
       readNestedString(json, ["data", "mimetype"]) ??
       readNestedString(json, ["data", "mimeType"]);
     if (!base64) return null;
+    const parsedBase64 = parseDataUri(base64);
     return {
-      base64,
-      mimeType: normalizeMimeType(mimetype ?? (params.convertToMp4 ? "audio/mp4" : undefined)),
+      base64: parsedBase64.base64 ?? base64,
+      mimeType: parsedBase64.mimeType ?? normalizeMimeType(mimetype ?? (params.convertToMp4 ? "audio/mp4" : undefined)),
     };
   } catch (e) {
     console.error("[fetchEvolutionMediaBase64] erro:", e);
