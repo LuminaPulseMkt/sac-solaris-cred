@@ -20,7 +20,7 @@ import {
   testEvolutionConnection,
   getActiveInstances,
 } from "@/lib/settings/settings.functions";
-import { testWhisperTranscription } from "@/lib/ai/ai.functions";
+import { testWhisperTranscription, transcribePendingAudios } from "@/lib/ai/ai.functions";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({
@@ -332,14 +332,28 @@ function IntegracoesTab() {
 
 function WhisperTestSection() {
   const transcribe = useServerFn(testWhisperTranscription);
+  const transcribePending = useServerFn(transcribePendingAudios);
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pendingBusy, setPendingBusy] = useState(false);
   const [result, setResult] = useState<{
     ok: boolean;
     text: string | null;
     elapsedMs: number;
     error: string | null;
   } | null>(null);
+
+  const handlePending = async () => {
+    setPendingBusy(true);
+    try {
+      const r = await transcribePending({ data: { limit: 20 } });
+      toast.success(`Áudios pendentes: ${r.transcribed} transcrito(s), ${r.failed} falha(s)`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao transcrever pendentes");
+    } finally {
+      setPendingBusy(false);
+    }
+  };
 
   const handleRun = async () => {
     if (!file) return toast.error("Selecione um arquivo de áudio");
@@ -385,6 +399,9 @@ function WhisperTestSection() {
         />
         <Button size="sm" onClick={handleRun} disabled={busy || !file}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Testar"}
+        </Button>
+        <Button size="sm" variant="outline" onClick={handlePending} disabled={pendingBusy}>
+          {pendingBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Transcrever pendentes"}
         </Button>
       </div>
       {result && (

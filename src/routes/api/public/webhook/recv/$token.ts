@@ -165,10 +165,11 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           "";
 
         let transcriptionStatus: string | null = null;
+        let transcriptionError: string | null = null;
         let audioDurationS: number | null = null;
 
         if (messageType === "audio" && !messageText) {
-          const { extractAudioFromPayload, transcribeAudio, fetchEvolutionMediaBase64 } = await import(
+          const { extractAudioFromPayload, prepareAudioForTranscription, transcribeAudio } = await import(
             "@/lib/ai/transcribe.server"
           );
           const audioInfo = extractAudioFromPayload(msg);
@@ -176,22 +177,16 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
             audioDurationS = audioInfo.durationSeconds ?? null;
             transcriptionStatus = "pending";
 
-            // Se não veio base64, busca via Evolution API (URL .enc não é decodificável diretamente)
-            if (!audioInfo.base64) {
-              const fetched = await fetchEvolutionMediaBase64({
-                instance: payload.instance ?? operator.instance_name,
-                messagePayload: payload.data,
-              }).catch(() => null);
-              if (fetched?.base64) {
-                audioInfo.base64 = fetched.base64;
-                if (fetched.mimeType) audioInfo.mimeType = fetched.mimeType;
-              }
-            }
-
-            const transcribed = await transcribeAudio(audioInfo).catch((e) => {
-              console.error("[webhook] transcribeAudio erro:", e);
-              return null;
-            });
+            const transcribed = await prepareAudioForTranscription(audioInfo, {
+              instance: payload.instance ?? operator.instance_name,
+              messagePayload: payload.data,
+            })
+              .then((preparedAudio) => transcribeAudio(preparedAudio))
+              .catch((e) => {
+                transcriptionError = e instanceof Error ? e.message : String(e);
+                console.error("[webhook] transcribeAudio erro:", transcriptionError);
+                return null;
+              });
             if (transcribed) {
               messageText = `🎤 ${transcribed}`;
               transcriptionStatus = "done";
@@ -200,7 +195,9 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
               transcriptionStatus = "failed";
             }
           } else {
-            messageText = "[áudio]";
+            transcriptionStatus = "failed";
+            transcriptionError = "Payload de áudio sem audioMessage/pttMessage";
+            messageText = "[áudio não transcrito]";
           }
         }
 
@@ -384,6 +381,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           http_status: 200,
           payload_raw: payload as never,
           processed: true,
+          error_message: transcriptionError ? `Falha na transcrição: ${transcriptionError}` : null,
           origin_ip: originIp,
         });
 
@@ -416,6 +414,8 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         return Response.json({
           received: true,
           conversation_id: conversation.id,
+          transcription_status: transcriptionStatus,
+          transcription_error: transcriptionError,
           response_time_s: responseTimeSec,
           score_sac: score,
         });

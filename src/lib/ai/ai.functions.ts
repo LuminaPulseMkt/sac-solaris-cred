@@ -225,7 +225,7 @@ export const transcribePendingAudios = createServerFn({ method: "POST" }).middle
     let transcribed = 0;
     let failed = 0;
 
-    const { transcribeAudio, extractAudioFromPayload, fetchEvolutionMediaBase64 } = await import(
+    const { transcribeAudio, extractAudioFromPayload, prepareAudioForTranscription } = await import(
       "@/lib/ai/transcribe.server"
     );
 
@@ -243,18 +243,11 @@ export const transcribePendingAudios = createServerFn({ method: "POST" }).middle
           failed++;
           continue;
         }
-        if (!audioInfo.base64) {
-          const instance = (rawPayload as { instance?: string })?.instance ?? "";
-          const fetched = await fetchEvolutionMediaBase64({
-            instance,
-            messagePayload: dataNode,
-          }).catch(() => null);
-          if (fetched?.base64) {
-            audioInfo.base64 = fetched.base64;
-            if (fetched.mimeType) audioInfo.mimeType = fetched.mimeType;
-          }
-        }
-        const text = await transcribeAudio(audioInfo);
+        const preparedAudio = await prepareAudioForTranscription(audioInfo, {
+          instance: (rawPayload as { instance?: string })?.instance ?? "",
+          messagePayload: dataNode,
+        });
+        const text = await transcribeAudio(preparedAudio);
         await supabaseAdmin
           .from("messages")
           .update({
@@ -264,7 +257,12 @@ export const transcribePendingAudios = createServerFn({ method: "POST" }).middle
           .eq("id", msg.id);
         text ? transcribed++ : failed++;
         await new Promise((r) => setTimeout(r, 300));
-      } catch {
+      } catch (e) {
+        console.error("[transcribePendingAudios] falha em", msg.id, e);
+        await supabaseAdmin
+          .from("messages")
+          .update({ transcription_status: "failed" } as never)
+          .eq("id", msg.id);
         failed++;
       }
     }
