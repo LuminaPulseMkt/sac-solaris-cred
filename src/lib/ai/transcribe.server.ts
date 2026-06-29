@@ -166,7 +166,7 @@ export async function fetchEvolutionMediaBase64(params: {
       readNestedString(json, ["mimeType"]) ??
       readNestedString(json, ["data", "mimetype"]) ??
       readNestedString(json, ["data", "mimeType"]);
-    if (!json.base64) return null;
+    if (!base64) return null;
     return {
       base64,
       mimeType: normalizeMimeType(mimetype ?? (params.convertToMp4 ? "audio/mp4" : undefined)),
