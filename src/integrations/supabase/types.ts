@@ -180,6 +180,7 @@ export type Database = {
       }
       messages: {
         Row: {
+          audio_duration_s: number | null
           conversation_id: string
           created_at: string
           from_role: string
@@ -193,8 +194,10 @@ export type Database = {
           received_at: string
           response_time_s: number | null
           sent_at: string
+          transcription_status: string | null
         }
         Insert: {
+          audio_duration_s?: number | null
           conversation_id: string
           created_at?: string
           from_role: string
@@ -208,8 +211,10 @@ export type Database = {
           received_at?: string
           response_time_s?: number | null
           sent_at: string
+          transcription_status?: string | null
         }
         Update: {
+          audio_duration_s?: number | null
           conversation_id?: string
           created_at?: string
           from_role?: string
@@ -223,6 +228,7 @@ export type Database = {
           received_at?: string
           response_time_s?: number | null
           sent_at?: string
+          transcription_status?: string | null
         }
         Relationships: [
           {

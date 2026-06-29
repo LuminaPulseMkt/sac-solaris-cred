@@ -188,12 +188,15 @@ export const transcribePendingAudios = createServerFn({ method: "POST" }).middle
     let transcribed = 0;
     let failed = 0;
 
-    const { transcribeAudio, extractAudioFromPayload } = await import("@/lib/ai/transcribe.server");
+    const { transcribeAudio, extractAudioFromPayload, fetchEvolutionMediaBase64 } = await import(
+      "@/lib/ai/transcribe.server"
+    );
 
     for (const msg of (msgs ?? []) as unknown as Array<{ id: string; raw_payload: unknown }>) {
       try {
         const rawPayload = msg.raw_payload as Record<string, unknown> | null;
-        const msgData = (rawPayload as { data?: { message?: Record<string, unknown> } })?.data?.message;
+        const dataNode = (rawPayload as { data?: Record<string, unknown> })?.data;
+        const msgData = (dataNode as { message?: Record<string, unknown> } | undefined)?.message;
         if (!msgData) {
           failed++;
           continue;
@@ -202,6 +205,17 @@ export const transcribePendingAudios = createServerFn({ method: "POST" }).middle
         if (!audioInfo) {
           failed++;
           continue;
+        }
+        if (!audioInfo.base64) {
+          const instance = (rawPayload as { instance?: string })?.instance ?? "";
+          const fetched = await fetchEvolutionMediaBase64({
+            instance,
+            messagePayload: dataNode,
+          }).catch(() => null);
+          if (fetched?.base64) {
+            audioInfo.base64 = fetched.base64;
+            if (fetched.mimeType) audioInfo.mimeType = fetched.mimeType;
+          }
         }
         const text = await transcribeAudio(audioInfo);
         await supabaseAdmin

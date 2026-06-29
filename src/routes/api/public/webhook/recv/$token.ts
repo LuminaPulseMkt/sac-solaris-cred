@@ -168,14 +168,30 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         let audioDurationS: number | null = null;
 
         if (messageType === "audio" && !messageText) {
-          const { extractAudioFromPayload, transcribeAudio } = await import(
+          const { extractAudioFromPayload, transcribeAudio, fetchEvolutionMediaBase64 } = await import(
             "@/lib/ai/transcribe.server"
           );
           const audioInfo = extractAudioFromPayload(msg);
           if (audioInfo) {
             audioDurationS = audioInfo.durationSeconds ?? null;
             transcriptionStatus = "pending";
-            const transcribed = await transcribeAudio(audioInfo).catch(() => null);
+
+            // Se não veio base64, busca via Evolution API (URL .enc não é decodificável diretamente)
+            if (!audioInfo.base64) {
+              const fetched = await fetchEvolutionMediaBase64({
+                instance: payload.instance ?? operator.instance_name,
+                messagePayload: payload.data,
+              }).catch(() => null);
+              if (fetched?.base64) {
+                audioInfo.base64 = fetched.base64;
+                if (fetched.mimeType) audioInfo.mimeType = fetched.mimeType;
+              }
+            }
+
+            const transcribed = await transcribeAudio(audioInfo).catch((e) => {
+              console.error("[webhook] transcribeAudio erro:", e);
+              return null;
+            });
             if (transcribed) {
               messageText = `🎤 ${transcribed}`;
               transcriptionStatus = "done";
