@@ -82,10 +82,47 @@ export function extractAudioFromPayload(
     | undefined;
   if (!audioMsg) return null;
 
+  // Evolution às vezes envia base64 no topo da mensagem
+  const topBase64 = (message as { base64?: string }).base64;
+
   return {
-    base64: audioMsg.base64 as string | undefined,
+    base64: (audioMsg.base64 as string | undefined) ?? topBase64,
     url: (audioMsg.url ?? audioMsg.mediaUrl ?? audioMsg.directPath) as string | undefined,
     mimeType: (audioMsg.mimetype ?? audioMsg.mimeType ?? "audio/ogg") as string,
     durationSeconds: typeof audioMsg.seconds === "number" ? audioMsg.seconds : undefined,
   };
+}
+
+/**
+ * Busca o base64 do áudio na Evolution API.
+ * A URL do WhatsApp é criptografada (.enc) — só a Evolution sabe descriptografar.
+ */
+export async function fetchEvolutionMediaBase64(params: {
+  instance: string;
+  messagePayload: unknown;
+}): Promise<{ base64: string; mimeType?: string } | null> {
+  const baseUrl = (await getSettingValue("evolution_api_url")).replace(/\/$/, "");
+  const apiKey = await getSettingValue("evolution_api_key");
+  if (!baseUrl || !apiKey || !params.instance) return null;
+
+  try {
+    const res = await fetch(
+      `${baseUrl}/chat/getBase64FromMediaMessage/${encodeURIComponent(params.instance)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: apiKey },
+        body: JSON.stringify({ message: params.messagePayload, convertToMp4: false }),
+      },
+    );
+    if (!res.ok) {
+      console.warn("[fetchEvolutionMediaBase64] HTTP", res.status, await res.text().catch(() => ""));
+      return null;
+    }
+    const json = (await res.json()) as { base64?: string; mimetype?: string };
+    if (!json.base64) return null;
+    return { base64: json.base64, mimeType: json.mimetype };
+  } catch (e) {
+    console.error("[fetchEvolutionMediaBase64] erro:", e);
+    return null;
+  }
 }
