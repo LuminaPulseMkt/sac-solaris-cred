@@ -183,10 +183,10 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
             })
               .then((preparedAudio) => transcribeAudio(preparedAudio))
               .catch((e) => {
-              transcriptionError = e instanceof Error ? e.message : String(e);
-              console.error("[webhook] transcribeAudio erro:", transcriptionError);
-              return null;
-            });
+                transcriptionError = e instanceof Error ? e.message : String(e);
+                console.error("[webhook] transcribeAudio erro:", transcriptionError);
+                return null;
+              });
             if (transcribed) {
               messageText = `🎤 ${transcribed}`;
               transcriptionStatus = "done";
@@ -195,7 +195,9 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
               transcriptionStatus = "failed";
             }
           } else {
-            messageText = "[áudio]";
+            transcriptionStatus = "failed";
+            transcriptionError = "Payload de áudio sem audioMessage/pttMessage";
+            messageText = "[áudio não transcrito]";
           }
         }
 
