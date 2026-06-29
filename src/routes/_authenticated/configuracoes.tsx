@@ -293,10 +293,29 @@ function IntegracoesTab() {
           lastFour={sensitive.evolution_api_key?.lastFour ?? null}
           onSaved={invalidate}
         />
-        <div>
+        <div className="space-y-2">
           <Button variant="outline" size="sm" onClick={handleTest} disabled={testing}>
             {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Testar conexão"}
           </Button>
+          {testResult && (
+            <div
+              className={`rounded-md border p-3 text-xs ${
+                testResult.success
+                  ? "border-success/30 bg-success/10 text-success"
+                  : "border-destructive/30 bg-destructive/10 text-destructive"
+              }`}
+            >
+              <div className="font-mono font-semibold">
+                {testResult.success ? "✅" : "❌"} HTTP {testResult.status || "—"} {testResult.statusText}
+              </div>
+              {testResult.url && <div className="mt-1 break-all opacity-80">GET {testResult.url}</div>}
+              {testResult.success ? (
+                <div className="mt-1">{testResult.instances.length} instância(s): {testResult.instances.join(", ") || "—"}</div>
+              ) : (
+                <div className="mt-1 break-words">{testResult.error}</div>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
