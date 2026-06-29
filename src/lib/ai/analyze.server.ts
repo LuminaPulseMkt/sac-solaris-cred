@@ -239,7 +239,7 @@ export async function analyzeConversationById(conversationId: string): Promise<C
     return await analyzeConversation({
       conversationId,
       operatorId: conv.operator_id,
-      messages: (msgs ?? []) as AnalyzeMessage[],
+      messages: ((msgs ?? []) as unknown) as AnalyzeMessage[],
       operatorName,
       leadName: conv.lead_name ?? conv.lead_phone ?? "Lead",
       avgResponseTime: conv.avg_response_time_s,
