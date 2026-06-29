@@ -19,6 +19,8 @@ export interface AnalyzeMessage {
   message_text: string | null;
   sent_at: string;
   response_time_s: number | null;
+  message_type?: string;
+  transcription_status?: string | null;
 }
 
 async function getSettingValue(key: string): Promise<string> {
@@ -31,7 +33,23 @@ function formatTranscript(messages: AnalyzeMessage[], operatorName: string, lead
     .map((m) => {
       const hh = new Date(m.sent_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
       const who = m.from_role === "operator" ? operatorName : leadName;
-      return `[${hh}] ${who}: ${m.message_text ?? "[mídia]"}`;
+      let text = m.message_text ?? "";
+      if (m.message_type === "audio" && m.transcription_status === "done") {
+        const clean = text.replace(/^🎤\s*/, "").trim();
+        text = `[ÁUDIO TRANSCRITO]: "${clean}"`;
+      } else if (m.message_type === "audio" && m.transcription_status === "failed") {
+        text = "[áudio não transcrito]";
+      } else if (!text || text === "[mídia]") {
+        const desc: Record<string, string> = {
+          image: "[enviou uma imagem]",
+          video: "[enviou um vídeo]",
+          document: "[enviou um documento]",
+          sticker: "[enviou uma figurinha]",
+          location: "[compartilhou localização]",
+        };
+        text = desc[m.message_type ?? ""] ?? "[mídia]";
+      }
+      return `[${hh}] ${who}: ${text}`;
     })
     .join("\n");
 }
@@ -77,7 +95,7 @@ export async function analyzeConversation(params: {
 
 Analise a conversa entre o operador "${params.operatorName}" e o lead "${params.leadName}".
 
-CONVERSA:
+CONVERSA (mensagens de áudio aparecem como [ÁUDIO TRANSCRITO]: "texto"):
 ${transcript}
 
 MÉTRICAS:
@@ -211,7 +229,7 @@ export async function analyzeConversationById(conversationId: string): Promise<C
 
     const { data: msgs } = await supabaseAdmin
       .from("messages")
-      .select("from_role, message_text, sent_at, response_time_s")
+      .select("from_role, message_text, sent_at, response_time_s, message_type, transcription_status" as never)
       .eq("conversation_id", conversationId)
       .order("sent_at", { ascending: true });
 
@@ -221,7 +239,7 @@ export async function analyzeConversationById(conversationId: string): Promise<C
     return await analyzeConversation({
       conversationId,
       operatorId: conv.operator_id,
-      messages: (msgs ?? []) as AnalyzeMessage[],
+      messages: ((msgs ?? []) as unknown) as AnalyzeMessage[],
       operatorName,
       leadName: conv.lead_name ?? conv.lead_phone ?? "Lead",
       avgResponseTime: conv.avg_response_time_s,

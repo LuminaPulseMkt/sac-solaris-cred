@@ -157,11 +157,47 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         const leadName = payload.data?.pushName || leadPhone;
         const fromRole = fromMe ? "operator" : "lead";
         const msg = payload.data?.message ?? {};
-        const messageText =
+        const messageType = detectMessageType(msg);
+
+        let messageText: string =
           (msg as { conversation?: string }).conversation ||
           (msg as { extendedTextMessage?: { text?: string } }).extendedTextMessage?.text ||
-          "[mídia]";
-        const messageType = detectMessageType(msg);
+          "";
+
+        let transcriptionStatus: string | null = null;
+        let audioDurationS: number | null = null;
+
+        if (messageType === "audio" && !messageText) {
+          const { extractAudioFromPayload, transcribeAudio } = await import(
+            "@/lib/ai/transcribe.server"
+          );
+          const audioInfo = extractAudioFromPayload(msg);
+          if (audioInfo) {
+            audioDurationS = audioInfo.durationSeconds ?? null;
+            transcriptionStatus = "pending";
+            const transcribed = await transcribeAudio(audioInfo).catch(() => null);
+            if (transcribed) {
+              messageText = `🎤 ${transcribed}`;
+              transcriptionStatus = "done";
+            } else {
+              messageText = "[áudio não transcrito]";
+              transcriptionStatus = "failed";
+            }
+          } else {
+            messageText = "[áudio]";
+          }
+        }
+
+        if (!messageText) {
+          const midiaTitles: Record<string, string> = {
+            image: "[imagem]",
+            video: "[vídeo]",
+            document: "[documento]",
+            sticker: "[figurinha]",
+            location: "[localização]",
+          };
+          messageText = midiaTitles[messageType] ?? "[mídia]";
+        }
         const tsRaw = payload.data?.messageTimestamp;
         const sentAt = new Date((tsRaw ? tsRaw : Date.now() / 1000) * 1000).toISOString();
 
@@ -262,8 +298,10 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           response_time_s: responseTimeSec,
           lead_name: leadName,
           lead_phone: leadPhone,
+          transcription_status: transcriptionStatus,
+          audio_duration_s: audioDurationS,
           raw_payload: payload as never,
-        });
+        } as never);
 
         if (msgError) {
           await supabaseAdmin.from("webhook_logs").insert({
