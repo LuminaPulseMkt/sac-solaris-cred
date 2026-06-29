@@ -8,9 +8,10 @@ interface MetricCardProps {
   deltaLabel?: string;
   alert?: boolean;
   icon?: React.ReactNode;
+  hint?: string;
 }
 
-export function MetricCard({ label, value, delta, deltaLabel, alert, icon }: MetricCardProps) {
+export function MetricCard({ label, value, delta, deltaLabel, alert, icon, hint }: MetricCardProps) {
   const positive = delta !== undefined && delta >= 0;
   return (
     <div className="rounded-lg bg-surface p-4">
@@ -22,6 +23,7 @@ export function MetricCard({ label, value, delta, deltaLabel, alert, icon }: Met
         {alert && <AlertTriangle className="h-3.5 w-3.5 text-warning" />}
       </div>
       <div className="mt-2 text-[22px] font-medium leading-tight text-foreground">{value}</div>
+      {hint && <div className="mt-1 text-[11px] text-muted-foreground">{hint}</div>}
       {delta !== undefined && (
         <div
           className={cn(

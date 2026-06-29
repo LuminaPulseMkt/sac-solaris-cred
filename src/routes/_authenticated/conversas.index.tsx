@@ -83,6 +83,12 @@ function ConversasPage() {
     });
   }, [rows, search]);
 
+  const recurringPhones = useMemo(() => {
+    const count: Record<string, number> = {};
+    rows.forEach((c) => { count[c.lead_phone] = (count[c.lead_phone] ?? 0) + 1; });
+    return new Set(Object.entries(count).filter(([, n]) => n > 1).map(([p]) => p));
+  }, [rows]);
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -213,7 +219,14 @@ function ConversasPage() {
                           <span className="text-sm">{opName}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm">{c.lead_name ?? "—"}</TableCell>
+                      <TableCell className="text-sm">
+                        {c.lead_name ?? "—"}
+                        {recurringPhones.has(c.lead_phone) && (
+                          <span className="ml-1.5 inline-block rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                            Recorrente
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell className="font-mono text-xs">{c.lead_phone}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{formatDateTime(c.started_at)}</TableCell>
                       <TableCell className="text-sm tabular-nums">

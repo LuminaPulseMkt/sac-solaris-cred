@@ -207,8 +207,8 @@ export const listConversations = createServerFn({ method: "GET" }).middleware([r
   const { data, error } = await supabaseAdmin
     .from("conversations")
     .select("*, operators(name, instance_name)")
-    .order("started_at", { ascending: false })
-    .limit(500);
+    .order("updated_at", { ascending: false })
+    .limit(1000);
   if (error) throw new Error(error.message);
   return data ?? [];
 });
@@ -217,14 +217,22 @@ export const listOperatorStats = createServerFn({ method: "GET" }).middleware([r
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: ops, error } = await supabaseAdmin.from("operators").select("*").order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
-  const { data: convs } = await supabaseAdmin.from("conversations").select("operator_id, score_sac, avg_response_time_s, converted");
+  const { data: convs } = await supabaseAdmin
+    .from("conversations")
+    .select("operator_id, score_sac, avg_response_time_s, converted, status, updated_at, started_at");
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const stats = (ops ?? []).map((op) => {
     const cs = (convs ?? []).filter((c) => c.operator_id === op.id);
     const total = cs.length;
+    const todayActive = cs.filter((c) => c.updated_at && new Date(c.updated_at) >= todayStart).length;
+    const todayNew = cs.filter((c) => {
+      const s = (c as { session_started_at?: string | null }).session_started_at ?? c.started_at;
+      return s && new Date(s) >= todayStart;
+    }).length;
     const avgScore = total ? Math.round(cs.reduce((a, x) => a + (x.score_sac ?? 0), 0) / total) : 0;
     const avgResp = total ? cs.reduce((a, x) => a + (x.avg_response_time_s ?? 0), 0) / total : 0;
     const convRate = total ? (cs.filter((x) => x.converted).length / total) * 100 : 0;
-    return { ...op, total, avgScore, avgResp, convRate };
+    return { ...op, total, todayActive, todayNew, avgScore, avgResp, convRate };
   });
   return stats;
 });
