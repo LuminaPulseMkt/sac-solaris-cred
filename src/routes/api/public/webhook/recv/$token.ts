@@ -165,47 +165,74 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         const tsRaw = payload.data?.messageTimestamp;
         const sentAt = new Date((tsRaw ? tsRaw : Date.now() / 1000) * 1000).toISOString();
 
-        // FIX 2: busca a conversa existente ANTES do upsert para preservar status e converted
-        const { data: existingConv } = await supabaseAdmin
+        // ── Nova lógica de sessão ─────────────────────────────────────────
+        // Buscar a conversa mais recente deste lead com este operador
+        const { data: lastConv } = await supabaseAdmin
           .from("conversations")
-          .select("id, status, converted, total_messages, avg_response_time_s, score_sac")
+          .select("id, status, converted, total_messages, avg_response_time_s, score_sac, updated_at")
           .eq("operator_id", operator.id)
           .eq("remote_jid", remoteJid)
+          .order("started_at", { ascending: false })
+          .limit(1)
           .maybeSingle();
 
-        // Só define "ongoing" se for conversa nova — preserva "resolved"/"escalated" se já existir
-        const statusToSet = existingConv ? existingConv.status : "ongoing";
+        // Threshold configurável via app_settings (padrão 8h)
+        const { data: thresholdRow } = await supabaseAdmin
+          .from("app_settings")
+          .select("value")
+          .eq("key", "session_idle_threshold_hours")
+          .maybeSingle();
+        const IDLE_THRESHOLD_MS =
+          (parseInt(thresholdRow?.value ?? "8", 10) || 8) * 60 * 60 * 1000;
 
-        const { data: convUpsert, error: convError } = await supabaseAdmin
-          .from("conversations")
-          .upsert(
-            {
+        const isConvClosed =
+          !!lastConv && (lastConv.status === "resolved" || lastConv.status === "escalated");
+        const isConvIdle =
+          !!lastConv &&
+          lastConv.status === "ongoing" &&
+          Date.now() - new Date(lastConv.updated_at).getTime() > IDLE_THRESHOLD_MS;
+        const shouldCreateNew = !lastConv || isConvClosed || isConvIdle;
+
+        let conversation: NonNullable<typeof lastConv>;
+
+        if (shouldCreateNew) {
+          const { data: newConv, error: convError } = await supabaseAdmin
+            .from("conversations")
+            .insert({
               operator_id: operator.id,
               remote_jid: remoteJid,
               lead_phone: leadPhone,
               lead_name: leadName,
               instance_name: operator.instance_name,
-              status: statusToSet,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "operator_id,remote_jid" }
-          )
-          .select()
-          .single();
+              status: "ongoing",
+              session_started_at: new Date().toISOString(),
+            })
+            .select("id, status, converted, total_messages, avg_response_time_s, score_sac, updated_at")
+            .single();
 
-        if (convError || !convUpsert) {
-          await supabaseAdmin.from("webhook_logs").insert({
-            operator_id: operator.id,
-            http_status: 500,
-            payload_raw: payload as never,
-            processed: false,
-            error_message: `Erro ao salvar conversa: ${convError?.message ?? "unknown"}`,
-            origin_ip: originIp,
-          });
-          return Response.json({ error: "DB error" }, { status: 500 });
+          if (convError || !newConv) {
+            await supabaseAdmin.from("webhook_logs").insert({
+              operator_id: operator.id,
+              http_status: 500,
+              payload_raw: payload as never,
+              processed: false,
+              error_message: `Erro ao criar conversa: ${convError?.message ?? "unknown"}`,
+              origin_ip: originIp,
+            });
+            return Response.json({ error: "DB error" }, { status: 500 });
+          }
+          conversation = newConv;
+        } else {
+          if (lastConv!.status !== "ongoing") {
+            await supabaseAdmin
+              .from("conversations")
+              .update({ status: "ongoing", ended_at: null })
+              .eq("id", lastConv!.id);
+          }
+          conversation = lastConv!;
         }
 
-        const conversation = convUpsert;
+        const existingConv = shouldCreateNew ? null : lastConv;
 
         // Response time: delta vs last opposite-role message
         const { data: lastOpposite } = await supabaseAdmin
