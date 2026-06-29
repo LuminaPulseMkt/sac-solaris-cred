@@ -219,7 +219,14 @@ function ConversasPage() {
                           <span className="text-sm">{opName}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm">{c.lead_name ?? "—"}</TableCell>
+                      <TableCell className="text-sm">
+                        {c.lead_name ?? "—"}
+                        {recurringPhones.has(c.lead_phone) && (
+                          <span className="ml-1.5 inline-block rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                            Recorrente
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell className="font-mono text-xs">{c.lead_phone}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{formatDateTime(c.started_at)}</TableCell>
                       <TableCell className="text-sm tabular-nums">
