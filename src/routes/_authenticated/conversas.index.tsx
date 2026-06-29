@@ -83,6 +83,12 @@ function ConversasPage() {
     });
   }, [rows, search]);
 
+  const recurringPhones = useMemo(() => {
+    const count: Record<string, number> = {};
+    rows.forEach((c) => { count[c.lead_phone] = (count[c.lead_phone] ?? 0) + 1; });
+    return new Set(Object.entries(count).filter(([, n]) => n > 1).map(([p]) => p));
+  }, [rows]);
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
