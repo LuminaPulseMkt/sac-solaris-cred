@@ -20,6 +20,7 @@ import {
   testEvolutionConnection,
   getActiveInstances,
 } from "@/lib/settings/settings.functions";
+import { testWhisperTranscription } from "@/lib/ai/ai.functions";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({
