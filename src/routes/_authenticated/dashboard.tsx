@@ -84,12 +84,18 @@ function DashboardPage() {
   const kpis = useMemo(() => {
     const total = rows.length;
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const today = rows.filter((c) => new Date(c.started_at) >= todayStart).length;
+    // Conversas com atividade hoje (captura recorrentes e novas)
+    const today = rows.filter((c) => c.updated_at && new Date(c.updated_at) >= todayStart).length;
+    // Conversas novas hoje (primeira sessão criada hoje)
+    const todayNew = rows.filter((c) => {
+      const s = (c as { session_started_at?: string | null }).session_started_at ?? c.started_at;
+      return s && new Date(s) >= todayStart;
+    }).length;
     const avgResp = total ? rows.reduce((a, c) => a + (c.avg_response_time_s ?? 0), 0) / total : 0;
     const convRate = total ? (rows.filter((c) => c.converted).length / total) * 100 : 0;
     const avgScore = total ? Math.round(rows.reduce((a, c) => a + (c.score_sac ?? 0), 0) / total) : 0;
     const activeOps = opStats.filter((o) => o.status === "active").length;
-    return { total, today, avgResp, convRate, avgScore, activeOps };
+    return { total, today, todayNew, avgResp, convRate, avgScore, activeOps };
   }, [rows, opStats]);
 
   // ── Conversas por dia (últimos 7 dias) ───────────────────────────────────
