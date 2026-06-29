@@ -171,6 +171,7 @@ export async function fetchEvolutionMediaBase64(params: {
       json = null;
     }
     const base64 =
+      (typeof json === "string" ? json : undefined) ??
       readNestedString(json, ["base64"]) ??
       readNestedString(json, ["data"]) ??
       readNestedString(json, ["data", "base64"]) ??
