@@ -61,16 +61,17 @@ export const testEvolutionConnection = createServerFn({ method: "POST" }).middle
   const url = (map.evolution_api_url ?? "").replace(/\/+$/, "");
   const apiKey = map.evolution_api_key ?? "";
   if (!url || !apiKey) {
-    return { success: false, error: "URL ou API Key não configuradas", instances: [] as string[] };
+    return { success: false, status: 0, statusText: "", error: "URL ou API Key não configuradas", instances: [] as string[], url: "" };
   }
+  const endpoint = `${url}/instance/fetchInstances`;
   try {
-    const res = await fetch(`${url}/instance/fetchInstances`, {
+    const res = await fetch(endpoint, {
       method: "GET",
       headers: { apikey: apiKey, "Content-Type": "application/json" },
     });
     if (!res.ok) {
       const txt = await res.text();
-      return { success: false, error: `HTTP ${res.status}: ${txt.slice(0, 200)}`, instances: [] };
+      return { success: false, status: res.status, statusText: res.statusText, error: `HTTP ${res.status}: ${txt.slice(0, 200)}`, instances: [], url: endpoint };
     }
     const json = (await res.json()) as unknown;
     const arr = Array.isArray(json) ? json : [];
@@ -84,9 +85,9 @@ export const testEvolutionConnection = createServerFn({ method: "POST" }).middle
         return typeof name === "string" ? name : null;
       })
       .filter((n): n is string => !!n);
-    return { success: true, instances };
+    return { success: true, status: res.status, statusText: res.statusText, instances, url: endpoint, error: null };
   } catch (e) {
-    return { success: false, error: e instanceof Error ? e.message : "Erro desconhecido", instances: [] };
+    return { success: false, status: 0, statusText: "", error: e instanceof Error ? e.message : "Erro desconhecido", instances: [], url: endpoint };
   }
 });
 
