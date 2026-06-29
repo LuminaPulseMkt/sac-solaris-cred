@@ -160,3 +160,63 @@ export const getOperatorAiReport = createServerFn({ method: "GET" }).middleware(
     };
   });
 
+
+export const transcribePendingAudios = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        conversation_id: z.string().uuid().optional(),
+        limit: z.number().default(20),
+      })
+      .parse(input ?? {}),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    let q = supabaseAdmin
+      .from("messages")
+      .select("id, raw_payload, message_type, audio_duration_s" as never)
+      .eq("message_type", "audio")
+      .or(
+        "message_text.is.null,message_text.eq.[mídia],message_text.eq.[áudio],message_text.eq.[áudio não transcrito]",
+      )
+      .limit(data.limit);
+
+    if (data.conversation_id) q = q.eq("conversation_id", data.conversation_id);
+
+    const { data: msgs } = await q;
+    let transcribed = 0;
+    let failed = 0;
+
+    const { transcribeAudio, extractAudioFromPayload } = await import("@/lib/ai/transcribe.server");
+
+    for (const msg of (msgs ?? []) as Array<{ id: string; raw_payload: unknown }>) {
+      try {
+        const rawPayload = msg.raw_payload as Record<string, unknown> | null;
+        const msgData = (rawPayload as { data?: { message?: Record<string, unknown> } })?.data?.message;
+        if (!msgData) {
+          failed++;
+          continue;
+        }
+        const audioInfo = extractAudioFromPayload(msgData);
+        if (!audioInfo) {
+          failed++;
+          continue;
+        }
+        const text = await transcribeAudio(audioInfo);
+        await supabaseAdmin
+          .from("messages")
+          .update({
+            message_text: text ? `🎤 ${text}` : "[áudio não transcrito]",
+            transcription_status: text ? "done" : "failed",
+          } as never)
+          .eq("id", msg.id);
+        text ? transcribed++ : failed++;
+        await new Promise((r) => setTimeout(r, 300));
+      } catch {
+        failed++;
+      }
+    }
+
+    return { transcribed, failed, total: msgs?.length ?? 0 };
+  });
