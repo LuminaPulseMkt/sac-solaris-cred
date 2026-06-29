@@ -119,10 +119,11 @@ export function extractAudioFromPayload(
 
   // Evolution às vezes envia base64 no topo da mensagem
   const topBase64 = (message as { base64?: string }).base64;
+  const url = (audioMsg.url ?? audioMsg.mediaUrl) as string | undefined;
 
   return {
     base64: (audioMsg.base64 as string | undefined) ?? topBase64,
-    url: (audioMsg.url ?? audioMsg.mediaUrl ?? audioMsg.directPath) as string | undefined,
+    url: url?.startsWith("http") ? url : undefined,
     mimeType: normalizeMimeType((audioMsg.mimetype ?? audioMsg.mimeType ?? "audio/ogg") as string),
     durationSeconds: typeof audioMsg.seconds === "number" ? audioMsg.seconds : undefined,
   };
