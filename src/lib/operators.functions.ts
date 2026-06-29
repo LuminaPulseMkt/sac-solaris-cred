@@ -219,7 +219,7 @@ export const listOperatorStats = createServerFn({ method: "GET" }).middleware([r
   if (error) throw new Error(error.message);
   const { data: convs } = await supabaseAdmin
     .from("conversations")
-    .select("operator_id, score_sac, avg_response_time_s, converted, status, updated_at, started_at, session_started_at");
+    .select("operator_id, score_sac, avg_response_time_s, converted, status, updated_at, started_at");
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const stats = (ops ?? []).map((op) => {
     const cs = (convs ?? []).filter((c) => c.operator_id === op.id);
