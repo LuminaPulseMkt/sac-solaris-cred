@@ -129,6 +129,7 @@ export type Database = {
           operator_id: string
           remote_jid: string
           score_sac: number | null
+          session_started_at: string | null
           started_at: string
           status: string
           total_messages: number
@@ -146,6 +147,7 @@ export type Database = {
           operator_id: string
           remote_jid: string
           score_sac?: number | null
+          session_started_at?: string | null
           started_at?: string
           status?: string
           total_messages?: number
@@ -163,6 +165,7 @@ export type Database = {
           operator_id?: string
           remote_jid?: string
           score_sac?: number | null
+          session_started_at?: string | null
           started_at?: string
           status?: string
           total_messages?: number
