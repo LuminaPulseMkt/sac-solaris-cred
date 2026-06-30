@@ -260,7 +260,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
               instance_name: operator.instance_name,
               status: "ongoing",
             } as never)
-            .select("id, status, converted, total_messages, avg_response_time_s, score_sac, updated_at")
+            .select("id, status, converted, total_messages, avg_response_time_s, score_sac, updated_at, lead_name")
             .single();
 
           if (convError || !newConv) {
