@@ -80,75 +80,71 @@ function DashboardPage() {
   const { data: rows = [] } = useQuery({ queryKey: ["conversations"], queryFn: () => listFn(), refetchInterval: 30_000 });
   const { data: opStats = [] } = useQuery({ queryKey: ["operator-stats"], queryFn: () => statsFn(), refetchInterval: 30_000 });
 
-  // ── Conversas do dia (iniciadas OU respondidas hoje) ────────────────────
-  const todayRows = useMemo(() => {
+  // ── Particionamento único: hoje + buckets de 7 dias (single pass) ───────
+  const { todayRows, todayStartedRows, dayBuckets } = useMemo(() => {
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    return rows.filter((c) => {
-      const sessionStart = (c as { session_started_at?: string | null }).session_started_at ?? c.started_at;
-      const startedToday = sessionStart && new Date(sessionStart) >= todayStart;
-      const updatedToday = c.updated_at && new Date(c.updated_at) >= todayStart;
-      return startedToday || updatedToday;
-    });
-  }, [rows]);
+    const todayStartMs = todayStart.getTime();
 
-  // ── Conversas iniciadas hoje ─────────────────────────────────────────────
-  const todayStartedRows = useMemo(() => {
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    return rows.filter((c) => {
-      const s = (c as { session_started_at?: string | null }).session_started_at ?? c.started_at;
-      return s && new Date(s) >= todayStart;
-    });
+    const days = 7;
+    const order: string[] = [];
+    const buckets: Record<string, { date: string; total: number; resolved: number; respSum: number; respCount: number }> = {};
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(todayStart); d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      order.push(key);
+      buckets[key] = { date: labelDay(d.toISOString()), total: 0, resolved: 0, respSum: 0, respCount: 0 };
+    }
+
+    const today: typeof rows = [];
+    const todayStarted: typeof rows = [];
+
+    for (const c of rows) {
+      const sessionStart = (c as { session_started_at?: string | null }).session_started_at ?? c.started_at;
+      const sessionStartMs = sessionStart ? new Date(sessionStart).getTime() : 0;
+      const updatedMs = c.updated_at ? new Date(c.updated_at).getTime() : 0;
+      const startedToday = sessionStartMs >= todayStartMs;
+      if (startedToday || updatedMs >= todayStartMs) today.push(c);
+      if (startedToday) todayStarted.push(c);
+
+      const b = buckets[c.started_at.slice(0, 10)];
+      if (b) {
+        b.total++;
+        if (c.status === "resolved") b.resolved++;
+        if (c.avg_response_time_s) { b.respSum += c.avg_response_time_s; b.respCount++; }
+      }
+    }
+
+    return { todayRows: today, todayStartedRows: todayStarted, dayBuckets: order.map((k) => buckets[k]) };
   }, [rows]);
 
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
     const total = todayRows.length;
-    const avgResp = todayStartedRows.length
-      ? todayStartedRows.reduce((a, c) => a + (c.avg_response_time_s ?? 0), 0) / todayStartedRows.length
-      : 0;
-    const convRate = total ? (todayRows.filter((c) => c.converted).length / total) * 100 : 0;
-    const avgScore = total ? Math.round(todayRows.reduce((a, c) => a + (c.score_sac ?? 0), 0) / total) : 0;
+    let scoreSum = 0, converted = 0;
+    for (const c of todayRows) {
+      scoreSum += c.score_sac ?? 0;
+      if (c.converted) converted++;
+    }
+    let respSum = 0;
+    for (const c of todayStartedRows) respSum += c.avg_response_time_s ?? 0;
+    const avgResp = todayStartedRows.length ? respSum / todayStartedRows.length : 0;
+    const convRate = total ? (converted / total) * 100 : 0;
+    const avgScore = total ? Math.round(scoreSum / total) : 0;
     const activeOps = opStats.filter((o) => o.status === "active").length;
     return { total, today: total, todayNew: todayStartedRows.length, avgResp, convRate, avgScore, activeOps };
   }, [todayRows, todayStartedRows, opStats]);
 
   // ── Conversas por dia (últimos 7 dias) ───────────────────────────────────
-  const convsByDay = useMemo(() => {
-    const map: Record<string, { date: string; total: number; resolved: number }> = {};
-    const days = 7;
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0, 0, 0, 0);
-      const key = d.toISOString().slice(0, 10);
-      map[key] = { date: labelDay(d.toISOString()), total: 0, resolved: 0 };
-    }
-    rows.forEach((c) => {
-      const key = c.started_at.slice(0, 10);
-      if (map[key]) {
-        map[key].total++;
-        if (c.status === "resolved") map[key].resolved++;
-      }
-    });
-    return Object.values(map);
-  }, [rows]);
+  const convsByDay = useMemo(
+    () => dayBuckets.map((d) => ({ date: d.date, total: d.total, resolved: d.resolved })),
+    [dayBuckets],
+  );
 
   // ── Tempo médio de resposta por dia ──────────────────────────────────────
-  const respByDay = useMemo(() => {
-    const map: Record<string, { date: string; avg: number; count: number; sum: number }> = {};
-    const days = 7;
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0, 0, 0, 0);
-      const key = d.toISOString().slice(0, 10);
-      map[key] = { date: labelDay(d.toISOString()), avg: 0, count: 0, sum: 0 };
-    }
-    rows.forEach((c) => {
-      const key = c.started_at.slice(0, 10);
-      if (map[key] && c.avg_response_time_s) {
-        map[key].sum += c.avg_response_time_s;
-        map[key].count++;
-      }
-    });
-    return Object.values(map).map((d) => ({ ...d, avg: d.count ? Math.round(d.sum / d.count) : 0 }));
-  }, [rows]);
+  const respByDay = useMemo(
+    () => dayBuckets.map((d) => ({ date: d.date, avg: d.respCount ? Math.round(d.respSum / d.respCount) : 0 })),
+    [dayBuckets],
+  );
 
   // ── Score por faixa (apenas hoje) ─────────────────────────────────────────
   const scoreDist = useMemo(() => {
@@ -159,11 +155,12 @@ function DashboardPage() {
       { label: "71–90", min: 71, max: 90, count: 0 },
       { label: "91–100", min: 91, max: 100, count: 0 },
     ];
-    todayRows.forEach((c) => {
+    for (const c of todayRows) {
       const s = c.score_sac ?? 0;
-      const b = buckets.find((b) => s >= b.min && s <= b.max);
-      if (b) b.count++;
-    });
+      for (const b of buckets) {
+        if (s >= b.min && s <= b.max) { b.count++; break; }
+      }
+    }
     return buckets;
   }, [todayRows]);
 
