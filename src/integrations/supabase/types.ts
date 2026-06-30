@@ -198,6 +198,7 @@ export type Database = {
           response_time_s: number | null
           sent_at: string
           transcription_status: string | null
+          transcription_text: string | null
         }
         Insert: {
           audio_duration_s?: number | null
@@ -215,6 +216,7 @@ export type Database = {
           response_time_s?: number | null
           sent_at: string
           transcription_status?: string | null
+          transcription_text?: string | null
         }
         Update: {
           audio_duration_s?: number | null
@@ -232,6 +234,7 @@ export type Database = {
           response_time_s?: number | null
           sent_at?: string
           transcription_status?: string | null
+          transcription_text?: string | null
         }
         Relationships: [
           {
