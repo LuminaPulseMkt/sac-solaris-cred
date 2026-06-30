@@ -256,7 +256,6 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
               lead_name: leadName,
               instance_name: operator.instance_name,
               status: "ongoing",
-              session_started_at: new Date().toISOString(),
             } as never)
             .select("id, status, converted, total_messages, avg_response_time_s, score_sac, updated_at")
             .single();
