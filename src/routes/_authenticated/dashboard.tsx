@@ -80,23 +80,37 @@ function DashboardPage() {
   const { data: rows = [] } = useQuery({ queryKey: ["conversations"], queryFn: () => listFn(), refetchInterval: 30_000 });
   const { data: opStats = [] } = useQuery({ queryKey: ["operator-stats"], queryFn: () => statsFn(), refetchInterval: 30_000 });
 
-  // ── KPIs ──────────────────────────────────────────────────────────────────
-  const kpis = useMemo(() => {
-    const total = rows.length;
+  // ── Conversas do dia (iniciadas OU respondidas hoje) ────────────────────
+  const todayRows = useMemo(() => {
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    // Conversas com atividade hoje (captura recorrentes e novas)
-    const today = rows.filter((c) => c.updated_at && new Date(c.updated_at) >= todayStart).length;
-    // Conversas novas hoje (primeira sessão criada hoje)
-    const todayNew = rows.filter((c) => {
+    return rows.filter((c) => {
+      const sessionStart = (c as { session_started_at?: string | null }).session_started_at ?? c.started_at;
+      const startedToday = sessionStart && new Date(sessionStart) >= todayStart;
+      const updatedToday = c.updated_at && new Date(c.updated_at) >= todayStart;
+      return startedToday || updatedToday;
+    });
+  }, [rows]);
+
+  // ── Conversas iniciadas hoje ─────────────────────────────────────────────
+  const todayStartedRows = useMemo(() => {
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    return rows.filter((c) => {
       const s = (c as { session_started_at?: string | null }).session_started_at ?? c.started_at;
       return s && new Date(s) >= todayStart;
-    }).length;
-    const avgResp = total ? rows.reduce((a, c) => a + (c.avg_response_time_s ?? 0), 0) / total : 0;
-    const convRate = total ? (rows.filter((c) => c.converted).length / total) * 100 : 0;
-    const avgScore = total ? Math.round(rows.reduce((a, c) => a + (c.score_sac ?? 0), 0) / total) : 0;
+    });
+  }, [rows]);
+
+  // ── KPIs ──────────────────────────────────────────────────────────────────
+  const kpis = useMemo(() => {
+    const total = todayRows.length;
+    const avgResp = todayStartedRows.length
+      ? todayStartedRows.reduce((a, c) => a + (c.avg_response_time_s ?? 0), 0) / todayStartedRows.length
+      : 0;
+    const convRate = total ? (todayRows.filter((c) => c.converted).length / total) * 100 : 0;
+    const avgScore = total ? Math.round(todayRows.reduce((a, c) => a + (c.score_sac ?? 0), 0) / total) : 0;
     const activeOps = opStats.filter((o) => o.status === "active").length;
-    return { total, today, todayNew, avgResp, convRate, avgScore, activeOps };
-  }, [rows, opStats]);
+    return { total, today: total, todayNew: todayStartedRows.length, avgResp, convRate, avgScore, activeOps };
+  }, [todayRows, todayStartedRows, opStats]);
 
   // ── Conversas por dia (últimos 7 dias) ───────────────────────────────────
   const convsByDay = useMemo(() => {
@@ -136,7 +150,7 @@ function DashboardPage() {
     return Object.values(map).map((d) => ({ ...d, avg: d.count ? Math.round(d.sum / d.count) : 0 }));
   }, [rows]);
 
-  // ── Score por faixa ───────────────────────────────────────────────────────
+  // ── Score por faixa (apenas hoje) ─────────────────────────────────────────
   const scoreDist = useMemo(() => {
     const buckets = [
       { label: "0–30", min: 0, max: 30, count: 0 },
@@ -145,18 +159,18 @@ function DashboardPage() {
       { label: "71–90", min: 71, max: 90, count: 0 },
       { label: "91–100", min: 91, max: 100, count: 0 },
     ];
-    rows.forEach((c) => {
+    todayRows.forEach((c) => {
       const s = c.score_sac ?? 0;
       const b = buckets.find((b) => s >= b.min && s <= b.max);
       if (b) b.count++;
     });
     return buckets;
-  }, [rows]);
+  }, [todayRows]);
 
-  // ── Status pie ────────────────────────────────────────────────────────────
+  // ── Status pie (apenas hoje) ──────────────────────────────────────────────
   const statusPie = useMemo(() => {
     const map: Record<string, number> = {};
-    rows.forEach((c) => { map[c.status] = (map[c.status] ?? 0) + 1; });
+    todayRows.forEach((c) => { map[c.status] = (map[c.status] ?? 0) + 1; });
     const labels: Record<string, string> = { ongoing: "Em andamento", resolved: "Resolvido", escalated: "Escalado" };
     const colors: Record<string, string> = {
       ongoing: "var(--color-brand)",
@@ -164,7 +178,7 @@ function DashboardPage() {
       escalated: "var(--color-warning)",
     };
     return Object.entries(map).map(([k, v]) => ({ name: labels[k] ?? k, value: v, color: colors[k] ?? "var(--color-muted)" }));
-  }, [rows]);
+  }, [todayRows]);
 
   // ── Top operadores ────────────────────────────────────────────────────────
   const topOps = useMemo(() =>
@@ -218,6 +232,7 @@ function DashboardPage() {
             value={kpis.avgResp ? formatDuration(kpis.avgResp) : "—"}
             icon={<Clock className="h-3.5 w-3.5" />}
             alert={kpis.avgResp > 600}
+            hint={kpis.todayNew ? `Baseado em ${kpis.todayNew} conversas iniciadas hoje` : "Nenhuma conversa iniciada hoje"}
           />
           <MetricCard
             label="Score médio SAC"
