@@ -152,12 +152,11 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           return Response.json({ ignored: true });
         }
 
+        const { resolvePushName, resolveLeadName } = await import("@/lib/sac/lead-name");
         const fromMe = payload.data?.key?.fromMe ?? false;
         const leadPhone = remoteJid.replace("@s.whatsapp.net", "").replace("@c.us", "");
-        // pushName só é confiável quando a mensagem vem do lead.
-        // Quando fromMe=true, pushName é o nome do operador, não do lead.
-        const pushName = !fromMe ? (payload.data?.pushName?.trim() || null) : null;
-        const leadName = pushName || leadPhone;
+        const pushName = resolvePushName(fromMe, payload.data?.pushName);
+        const leadName = resolveLeadName({ fromMe, pushName, leadPhone });
         const fromRole = fromMe ? "operator" : "lead";
         const msg = payload.data?.message ?? {};
         const messageType = detectMessageType(msg);
