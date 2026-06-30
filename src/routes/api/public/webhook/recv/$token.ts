@@ -223,7 +223,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         // Buscar a conversa mais recente deste lead com este operador
         const { data: lastConv } = await supabaseAdmin
           .from("conversations")
-          .select("id, status, converted, total_messages, avg_response_time_s, score_sac, updated_at")
+          .select("id, status, converted, total_messages, avg_response_time_s, score_sac, updated_at, lead_name")
           .eq("operator_id", operator.id)
           .eq("remote_jid", remoteJid)
           .order("started_at", { ascending: false })
