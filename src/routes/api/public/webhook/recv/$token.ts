@@ -354,12 +354,18 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           converted: conversation.converted,
         });
 
+        // Atualiza lead_name se chegou pushName real e o atual ainda é o telefone
+        const currentLeadName = conversation.lead_name ?? null;
+        const shouldUpdateName =
+          !!pushName && (!currentLeadName || currentLeadName === leadPhone);
+
         await supabaseAdmin
           .from("conversations")
           .update({
             avg_response_time_s: avgRt,
             score_sac: score,
             total_messages: (existingConv?.total_messages ?? conversation.total_messages ?? 0) + 1,
+            ...(shouldUpdateName ? { lead_name: pushName } : {}),
           })
           .eq("id", conversation.id);
 
