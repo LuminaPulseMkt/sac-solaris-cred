@@ -225,10 +225,7 @@ export const listOperatorStats = createServerFn({ method: "GET" }).middleware([r
     const cs = (convs ?? []).filter((c) => c.operator_id === op.id);
     const total = cs.length;
     const todayActive = cs.filter((c) => c.updated_at && new Date(c.updated_at) >= todayStart).length;
-    const todayNew = cs.filter((c) => {
-      const s = (c as { session_started_at?: string | null }).session_started_at ?? c.started_at;
-      return s && new Date(s) >= todayStart;
-    }).length;
+    const todayNew = cs.filter((c) => c.started_at && new Date(c.started_at) >= todayStart).length;
     const avgScore = total ? Math.round(cs.reduce((a, x) => a + (x.score_sac ?? 0), 0) / total) : 0;
     const avgResp = total ? cs.reduce((a, x) => a + (x.avg_response_time_s ?? 0), 0) / total : 0;
     const convRate = total ? (cs.filter((x) => x.converted).length / total) * 100 : 0;

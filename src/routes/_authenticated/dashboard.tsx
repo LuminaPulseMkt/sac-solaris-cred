@@ -99,8 +99,7 @@ function DashboardPage() {
     const todayStarted: typeof rows = [];
 
     for (const c of rows) {
-      const sessionStart = (c as { session_started_at?: string | null }).session_started_at ?? c.started_at;
-      const sessionStartMs = sessionStart ? new Date(sessionStart).getTime() : 0;
+      const sessionStartMs = c.started_at ? new Date(c.started_at).getTime() : 0;
       const updatedMs = c.updated_at ? new Date(c.updated_at).getTime() : 0;
       const startedToday = sessionStartMs >= todayStartMs;
       if (startedToday || updatedMs >= todayStartMs) today.push(c);
