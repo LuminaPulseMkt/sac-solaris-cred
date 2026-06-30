@@ -154,7 +154,10 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
 
         const fromMe = payload.data?.key?.fromMe ?? false;
         const leadPhone = remoteJid.replace("@s.whatsapp.net", "").replace("@c.us", "");
-        const leadName = payload.data?.pushName || leadPhone;
+        // pushName só é confiável quando a mensagem vem do lead.
+        // Quando fromMe=true, pushName é o nome do operador, não do lead.
+        const pushName = !fromMe ? (payload.data?.pushName?.trim() || null) : null;
+        const leadName = pushName || leadPhone;
         const fromRole = fromMe ? "operator" : "lead";
         const msg = payload.data?.message ?? {};
         const messageType = detectMessageType(msg);
@@ -220,7 +223,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         // Buscar a conversa mais recente deste lead com este operador
         const { data: lastConv } = await supabaseAdmin
           .from("conversations")
-          .select("id, status, converted, total_messages, avg_response_time_s, score_sac, updated_at")
+          .select("id, status, converted, total_messages, avg_response_time_s, score_sac, updated_at, lead_name")
           .eq("operator_id", operator.id)
           .eq("remote_jid", remoteJid)
           .order("started_at", { ascending: false })
@@ -257,7 +260,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
               instance_name: operator.instance_name,
               status: "ongoing",
             } as never)
-            .select("id, status, converted, total_messages, avg_response_time_s, score_sac, updated_at")
+            .select("id, status, converted, total_messages, avg_response_time_s, score_sac, updated_at, lead_name")
             .single();
 
           if (convError || !newConv) {
@@ -351,12 +354,18 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           converted: conversation.converted,
         });
 
+        // Atualiza lead_name se chegou pushName real e o atual ainda é o telefone
+        const currentLeadName = conversation.lead_name ?? null;
+        const shouldUpdateName =
+          !!pushName && (!currentLeadName || currentLeadName === leadPhone);
+
         await supabaseAdmin
           .from("conversations")
           .update({
             avg_response_time_s: avgRt,
             score_sac: score,
             total_messages: (existingConv?.total_messages ?? conversation.total_messages ?? 0) + 1,
+            ...(shouldUpdateName ? { lead_name: pushName } : {}),
           })
           .eq("id", conversation.id);
 
