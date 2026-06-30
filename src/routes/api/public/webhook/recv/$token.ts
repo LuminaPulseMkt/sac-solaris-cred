@@ -353,10 +353,13 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           converted: conversation.converted,
         });
 
-        // Atualiza lead_name se chegou pushName real e o atual ainda é o telefone
-        const currentLeadName = conversation.lead_name ?? null;
-        const shouldUpdateName =
-          !!pushName && (!currentLeadName || currentLeadName === leadPhone);
+        // Backfill de lead_name quando chega pushName real
+        const { shouldUpdateLeadName } = await import("@/lib/sac/lead-name");
+        const shouldUpdateName = shouldUpdateLeadName({
+          pushName,
+          currentLeadName: conversation.lead_name ?? null,
+          leadPhone,
+        });
 
         await supabaseAdmin
           .from("conversations")
