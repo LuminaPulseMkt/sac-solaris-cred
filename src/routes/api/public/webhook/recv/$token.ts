@@ -51,7 +51,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
   server: {
     handlers: {
       POST: async ({ request, params }) => {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { supabaseAdmin, getClientForToken } = await import("@/integrations/supabase/client.server");
         const token = params.token;
         const originIp = request.headers.get("x-forwarded-for") ?? request.headers.get("cf-connecting-ip") ?? null;
 
@@ -75,17 +75,21 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           return Response.json({ error: "Invalid JSON" }, { status: 400 });
         }
 
+        // Resolver client do tenant pelo token.
+        const resolved = await getClientForToken(token);
+        const supabase = resolved?.client ?? supabaseAdmin;
+
         if (!payload) return Response.json({ error: "Empty body" }, { status: 400 });
 
         // Lookup operator by token
-        const { data: operator } = await supabaseAdmin
+        const { data: operator } = await supabase
           .from("operators")
           .select("*")
           .eq("token", token)
           .maybeSingle();
 
         if (!operator) {
-          await supabaseAdmin.from("webhook_logs").insert({
+          await supabase.from("webhook_logs").insert({
             received_at: new Date().toISOString(),
             http_status: 401,
             payload_raw: payload as never,
@@ -97,7 +101,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         }
 
         if (operator.status === "inactive") {
-          await supabaseAdmin.from("webhook_logs").insert({
+          await supabase.from("webhook_logs").insert({
             operator_id: operator.id,
             http_status: 403,
             payload_raw: payload as never,
@@ -110,7 +114,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
 
         // Silently ignore non-message events
         if (payload.event && payload.event !== "messages.upsert") {
-          await supabaseAdmin.from("webhook_logs").insert({
+          await supabase.from("webhook_logs").insert({
             operator_id: operator.id,
             http_status: 200,
             payload_raw: payload as never,
@@ -123,7 +127,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
 
         // Optional cross-validation: instance must match if provided
         if (payload.instance && operator.instance_name && payload.instance !== operator.instance_name) {
-          await supabaseAdmin.from("webhook_logs").insert({
+          await supabase.from("webhook_logs").insert({
             operator_id: operator.id,
             http_status: 401,
             payload_raw: payload as never,
@@ -141,7 +145,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
 
         // Ignore groups
         if (remoteJid.includes("@g.us")) {
-          await supabaseAdmin.from("webhook_logs").insert({
+          await supabase.from("webhook_logs").insert({
             operator_id: operator.id,
             http_status: 200,
             payload_raw: payload as never,
@@ -220,7 +224,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
 
         // ── Nova lógica de sessão ─────────────────────────────────────────
         // Buscar a conversa mais recente deste lead com este operador
-        const { data: lastConv } = await supabaseAdmin
+        const { data: lastConv } = await supabase
           .from("conversations")
           .select("id, status, converted, total_messages, avg_response_time_s, score_sac, updated_at, lead_name")
           .eq("operator_id", operator.id)
@@ -230,7 +234,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           .maybeSingle();
 
         // Threshold configurável via app_settings (padrão 8h)
-        const { data: thresholdRow } = await supabaseAdmin
+        const { data: thresholdRow } = await supabase
           .from("app_settings")
           .select("value")
           .eq("key", "session_idle_threshold_hours")
@@ -249,7 +253,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         let conversation: NonNullable<typeof lastConv>;
 
         if (shouldCreateNew) {
-          const { data: newConv, error: convError } = await supabaseAdmin
+          const { data: newConv, error: convError } = await supabase
             .from("conversations")
             .insert({
               operator_id: operator.id,
@@ -263,7 +267,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
             .single();
 
           if (convError || !newConv) {
-            await supabaseAdmin.from("webhook_logs").insert({
+            await supabase.from("webhook_logs").insert({
               operator_id: operator.id,
               http_status: 500,
               payload_raw: payload as never,
@@ -276,7 +280,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           conversation = newConv;
         } else {
           if (lastConv!.status !== "ongoing") {
-            await supabaseAdmin
+            await supabase
               .from("conversations")
               .update({ status: "ongoing", ended_at: null })
               .eq("id", lastConv!.id);
@@ -287,7 +291,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         const existingConv = shouldCreateNew ? null : lastConv;
 
         // Response time: delta vs last opposite-role message
-        const { data: lastOpposite } = await supabaseAdmin
+        const { data: lastOpposite } = await supabase
           .from("messages")
           .select("sent_at")
           .eq("conversation_id", conversation.id)
@@ -304,7 +308,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           : null;
 
         // Insert message
-        const { error: msgError } = await supabaseAdmin.from("messages").insert({
+        const { error: msgError } = await supabase.from("messages").insert({
           conversation_id: conversation.id,
           operator_id: operator.id,
           from_role: fromRole,
@@ -320,7 +324,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         } as never);
 
         if (msgError) {
-          await supabaseAdmin.from("webhook_logs").insert({
+          await supabase.from("webhook_logs").insert({
             operator_id: operator.id,
             http_status: 500,
             payload_raw: payload as never,
@@ -332,7 +336,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         }
 
         // Recalculate avg response time using only operator responses
-        const { data: opResponses } = await supabaseAdmin
+        const { data: opResponses } = await supabase
           .from("messages")
           .select("response_time_s")
           .eq("conversation_id", conversation.id)
@@ -361,7 +365,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           leadPhone,
         });
 
-        await supabaseAdmin
+        await supabase
           .from("conversations")
           .update({
             avg_response_time_s: avgRt,
@@ -377,7 +381,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         const lastDayStr = lastReceivedAt ? lastReceivedAt.toISOString().slice(0, 10) : null;
         const isNewDay = lastDayStr !== todayStr;
 
-        await supabaseAdmin
+        await supabase
           .from("operators")
           .update({
             last_received_at: new Date().toISOString(),
@@ -388,7 +392,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           .eq("id", operator.id);
 
         // Success log
-        await supabaseAdmin.from("webhook_logs").insert({
+        await supabase.from("webhook_logs").insert({
           operator_id: operator.id,
           http_status: 200,
           payload_raw: payload as never,
@@ -399,7 +403,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
 
         // Fire-and-forget AI analysis trigger
         try {
-          const { data: autoRow } = await supabaseAdmin
+          const { data: autoRow } = await supabase
             .from("app_settings")
             .select("value")
             .eq("key", "ai_auto_analyze")

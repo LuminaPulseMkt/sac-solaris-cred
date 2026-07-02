@@ -1,4 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import {
   LayoutDashboard,
   MessagesSquare,
@@ -9,9 +11,10 @@ import {
   Webhook,
   Settings,
   LogOut,
+  Building2,
+  Check,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   Sidebar,
   SidebarContent,
@@ -24,7 +27,16 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { SolarisLogo } from "@/components/solaris-logo";
+import { useTenant } from "@/contexts/tenant-context";
+import { isSuperAdmin } from "@/lib/tenants/tenants.functions";
 
 const overview = [
   { title: "Visão geral", url: "/dashboard", icon: LayoutDashboard },
@@ -48,6 +60,13 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isActive = (url: string) => path === url.split("#")[0];
+  const { tenants, activeTenant, setActiveTenantId } = useTenant();
+  const checkSuperAdmin = useServerFn(isSuperAdmin);
+  const { data: superAdmin } = useQuery({
+    queryKey: ["is-super-admin"],
+    queryFn: () => checkSuperAdmin(),
+    staleTime: 5 * 60_000,
+  });
 
   const handleLogout = async () => {
     await queryClient.cancelQueries();
@@ -71,10 +90,38 @@ export function AppSidebar() {
     </SidebarMenuItem>
   );
 
+  const adminItem = { title: "Empresas", url: "/admin", icon: Building2 };
+
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="px-3 py-4">
+      <SidebarHeader className="px-3 py-4 space-y-3">
         <SolarisLogo />
+        {tenants.length > 1 && activeTenant && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-between text-xs h-8"
+              >
+                <span className="truncate">{activeTenant.name}</span>
+                <Building2 className="h-3 w-3 opacity-60" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              {tenants.map((t) => (
+                <DropdownMenuItem
+                  key={t.id}
+                  onClick={() => setActiveTenantId(t.id)}
+                  className="flex items-center justify-between"
+                >
+                  <span className="truncate">{t.name}</span>
+                  {t.id === activeTenant.id && <Check className="h-3 w-3" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -95,6 +142,14 @@ export function AppSidebar() {
             <SidebarMenu>{integration.map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {superAdmin?.isSuperAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administração</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>{renderItem(adminItem)}</SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
