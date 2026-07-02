@@ -82,7 +82,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         if (!payload) return Response.json({ error: "Empty body" }, { status: 400 });
 
         // Lookup operator by token
-        const { data: operator } = await supabaseAdmin
+        const { data: operator } = await supabase
           .from("operators")
           .select("*")
           .eq("token", token)
@@ -224,7 +224,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
 
         // ── Nova lógica de sessão ─────────────────────────────────────────
         // Buscar a conversa mais recente deste lead com este operador
-        const { data: lastConv } = await supabaseAdmin
+        const { data: lastConv } = await supabase
           .from("conversations")
           .select("id, status, converted, total_messages, avg_response_time_s, score_sac, updated_at, lead_name")
           .eq("operator_id", operator.id)
@@ -234,7 +234,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           .maybeSingle();
 
         // Threshold configurável via app_settings (padrão 8h)
-        const { data: thresholdRow } = await supabaseAdmin
+        const { data: thresholdRow } = await supabase
           .from("app_settings")
           .select("value")
           .eq("key", "session_idle_threshold_hours")
@@ -253,7 +253,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         let conversation: NonNullable<typeof lastConv>;
 
         if (shouldCreateNew) {
-          const { data: newConv, error: convError } = await supabaseAdmin
+          const { data: newConv, error: convError } = await supabase
             .from("conversations")
             .insert({
               operator_id: operator.id,
@@ -280,7 +280,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           conversation = newConv;
         } else {
           if (lastConv!.status !== "ongoing") {
-            await supabaseAdmin
+            await supabase
               .from("conversations")
               .update({ status: "ongoing", ended_at: null })
               .eq("id", lastConv!.id);
@@ -291,7 +291,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         const existingConv = shouldCreateNew ? null : lastConv;
 
         // Response time: delta vs last opposite-role message
-        const { data: lastOpposite } = await supabaseAdmin
+        const { data: lastOpposite } = await supabase
           .from("messages")
           .select("sent_at")
           .eq("conversation_id", conversation.id)
@@ -336,7 +336,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         }
 
         // Recalculate avg response time using only operator responses
-        const { data: opResponses } = await supabaseAdmin
+        const { data: opResponses } = await supabase
           .from("messages")
           .select("response_time_s")
           .eq("conversation_id", conversation.id)
@@ -365,7 +365,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           leadPhone,
         });
 
-        await supabaseAdmin
+        await supabase
           .from("conversations")
           .update({
             avg_response_time_s: avgRt,
@@ -381,7 +381,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         const lastDayStr = lastReceivedAt ? lastReceivedAt.toISOString().slice(0, 10) : null;
         const isNewDay = lastDayStr !== todayStr;
 
-        await supabaseAdmin
+        await supabase
           .from("operators")
           .update({
             last_received_at: new Date().toISOString(),
@@ -403,7 +403,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
 
         // Fire-and-forget AI analysis trigger
         try {
-          const { data: autoRow } = await supabaseAdmin
+          const { data: autoRow } = await supabase
             .from("app_settings")
             .select("value")
             .eq("key", "ai_auto_analyze")
