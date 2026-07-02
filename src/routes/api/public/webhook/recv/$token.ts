@@ -148,7 +148,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           await supabase.from("webhook_logs").insert({
             operator_id: operator.id,
             http_status: 200,
-            payload_raw: payload as never,
+            payload_raw: { remoteJid, event: payload.event ?? "messages.upsert" } as never,
             processed: false,
             error_message: "Mensagem de grupo ignorada",
             origin_ip: originIp,
