@@ -51,7 +51,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
   server: {
     handlers: {
       POST: async ({ request, params }) => {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { supabaseAdmin, getClientForToken } = await import("@/integrations/supabase/client.server");
         const token = params.token;
         const originIp = request.headers.get("x-forwarded-for") ?? request.headers.get("cf-connecting-ip") ?? null;
 
@@ -74,6 +74,10 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           });
           return Response.json({ error: "Invalid JSON" }, { status: 400 });
         }
+
+        // Resolver client do tenant pelo token.
+        const resolved = await getClientForToken(token);
+        const supabase = resolved?.client ?? supabaseAdmin;
 
         if (!payload) return Response.json({ error: "Empty body" }, { status: 400 });
 
