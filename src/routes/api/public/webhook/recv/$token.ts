@@ -89,7 +89,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           .maybeSingle();
 
         if (!operator) {
-          await supabaseAdmin.from("webhook_logs").insert({
+          await supabase.from("webhook_logs").insert({
             received_at: new Date().toISOString(),
             http_status: 401,
             payload_raw: payload as never,
@@ -101,7 +101,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         }
 
         if (operator.status === "inactive") {
-          await supabaseAdmin.from("webhook_logs").insert({
+          await supabase.from("webhook_logs").insert({
             operator_id: operator.id,
             http_status: 403,
             payload_raw: payload as never,
@@ -114,7 +114,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
 
         // Silently ignore non-message events
         if (payload.event && payload.event !== "messages.upsert") {
-          await supabaseAdmin.from("webhook_logs").insert({
+          await supabase.from("webhook_logs").insert({
             operator_id: operator.id,
             http_status: 200,
             payload_raw: payload as never,
@@ -127,7 +127,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
 
         // Optional cross-validation: instance must match if provided
         if (payload.instance && operator.instance_name && payload.instance !== operator.instance_name) {
-          await supabaseAdmin.from("webhook_logs").insert({
+          await supabase.from("webhook_logs").insert({
             operator_id: operator.id,
             http_status: 401,
             payload_raw: payload as never,
@@ -145,7 +145,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
 
         // Ignore groups
         if (remoteJid.includes("@g.us")) {
-          await supabaseAdmin.from("webhook_logs").insert({
+          await supabase.from("webhook_logs").insert({
             operator_id: operator.id,
             http_status: 200,
             payload_raw: payload as never,
@@ -267,7 +267,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
             .single();
 
           if (convError || !newConv) {
-            await supabaseAdmin.from("webhook_logs").insert({
+            await supabase.from("webhook_logs").insert({
               operator_id: operator.id,
               http_status: 500,
               payload_raw: payload as never,
@@ -308,7 +308,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           : null;
 
         // Insert message
-        const { error: msgError } = await supabaseAdmin.from("messages").insert({
+        const { error: msgError } = await supabase.from("messages").insert({
           conversation_id: conversation.id,
           operator_id: operator.id,
           from_role: fromRole,
@@ -324,7 +324,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         } as never);
 
         if (msgError) {
-          await supabaseAdmin.from("webhook_logs").insert({
+          await supabase.from("webhook_logs").insert({
             operator_id: operator.id,
             http_status: 500,
             payload_raw: payload as never,
@@ -392,7 +392,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           .eq("id", operator.id);
 
         // Success log
-        await supabaseAdmin.from("webhook_logs").insert({
+        await supabase.from("webhook_logs").insert({
           operator_id: operator.id,
           http_status: 200,
           payload_raw: payload as never,
