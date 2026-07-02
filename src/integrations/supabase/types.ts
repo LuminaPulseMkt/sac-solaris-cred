@@ -417,6 +417,74 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_users: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: string | null
+          tenant_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: string | null
+          tenant_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: string | null
+          tenant_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_users_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          plan: string | null
+          schema_name: string
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          plan?: string | null
+          schema_name: string
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          plan?: string | null
+          schema_name?: string
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       webhook_logs: {
         Row: {
           error_message: string | null
@@ -463,7 +531,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_tenant_schema: {
+        Args: { schema_name: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
