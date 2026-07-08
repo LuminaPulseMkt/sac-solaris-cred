@@ -265,9 +265,10 @@ function OperatorsList({
                         size="sm"
                         variant="ghost"
                         title="Copiar URL"
-                        onClick={() => {
-                          navigator.clipboard.writeText(op.webhook_url ?? "");
-                          toast.success("URL do webhook copiada");
+                        onClick={async () => {
+                          const ok = await copyToClipboard(op.webhook_url ?? "");
+                          if (ok) toast.success("URL do webhook copiada");
+                          else toast.error("Não foi possível copiar. Selecione e copie manualmente.");
                         }}
                       >
                         <Copy className="h-3.5 w-3.5" />
