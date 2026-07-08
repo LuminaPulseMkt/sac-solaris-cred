@@ -134,8 +134,15 @@ export const deleteOperator = createServerFn({ method: "POST" }).middleware([req
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Limpa dependências (CASCADE já cobre a maioria, mas garantimos aqui).
+    await supabaseAdmin.from("webhook_logs").delete().eq("operator_id", data.id);
+    await supabaseAdmin.from("messages").delete().eq("operator_id", data.id);
+    await supabaseAdmin.from("conversations").delete().eq("operator_id", data.id);
     const { error } = await supabaseAdmin.from("operators").delete().eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[deleteOperator] falha", error);
+      throw new Error(error.message);
+    }
     return { ok: true };
   });
 
