@@ -204,8 +204,10 @@ function OperatorsList({
       await deleteFn({ data: { id: toDelete.id } });
       toast.success("Operador excluído");
       onChange();
-    } catch {
-      toast.error("Erro ao excluir. Tente novamente.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[deleteOperator]", err);
+      toast.error(`Erro ao excluir: ${msg}`);
     } finally {
       setToDelete(null);
     }
