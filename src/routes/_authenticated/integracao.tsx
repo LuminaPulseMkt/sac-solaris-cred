@@ -552,9 +552,10 @@ function NewOperatorForm({ onCreated }: { onCreated: () => void }) {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  navigator.clipboard.writeText(created.webhook_url ?? "");
-                  toast.success("URL copiada");
+                onClick={async () => {
+                  const ok = await copyToClipboard(created.webhook_url ?? "");
+                  if (ok) toast.success("URL copiada");
+                  else toast.error("Não foi possível copiar. Selecione e copie manualmente.");
                 }}
               >
                 <Copy className="h-3.5 w-3.5" /> Copiar
