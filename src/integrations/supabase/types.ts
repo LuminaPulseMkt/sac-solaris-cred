@@ -531,6 +531,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_webhook_logs: { Args: never; Returns: undefined }
       create_tenant_schema: {
         Args: { schema_name: string }
         Returns: undefined
