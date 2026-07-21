@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Copy, RefreshCw, Trash2, Webhook, FlaskConical, Eye, Pencil, KeyRound, UserPlus, ShieldOff, Dices } from "lucide-react";
+import { Copy, RefreshCw, Trash2, Webhook, FlaskConical, Eye, Pencil, KeyRound, UserPlus, ShieldOff, Dices, CheckCircle, AlertTriangle } from "lucide-react";
 import {
   listOperators,
   createOperator,
