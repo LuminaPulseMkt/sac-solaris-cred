@@ -220,6 +220,14 @@ function DashboardPage() {
 
       <main className="flex-1 space-y-6 p-4 md:p-6">
 
+        {/* ── Status da instância WhatsApp (operador) ──────────── */}
+        {profile?.role === "operator" && profile.operator && (
+          <InstanceStatusCard
+            instanceName={profile.operator.instance_name}
+            operatorName={profile.operator.name}
+          />
+        )}
+
         {/* ── KPI Cards ──────────────────────────────────────────── */}
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
