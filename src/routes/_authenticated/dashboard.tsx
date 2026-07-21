@@ -76,6 +76,7 @@ function ChartCard({ title, subtitle, children }: { title: string; subtitle?: st
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 function DashboardPage() {
+  const profile = useProfile();
   const listFn = useServerFn(listConversations);
   const statsFn = useServerFn(listOperatorStats);
 
