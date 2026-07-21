@@ -13,6 +13,8 @@ import {
 import { AppHeader } from "@/components/app-header";
 import { Button } from "@/components/ui/button";
 import { MetricCard } from "@/components/metric-card";
+import { InstanceStatusCard } from "@/components/instance-status-card";
+import { useProfile } from "@/contexts/profile-context";
 import { listConversations, listOperatorStats } from "@/lib/operators.functions";
 import { formatDuration } from "@/lib/sac/format";
 
