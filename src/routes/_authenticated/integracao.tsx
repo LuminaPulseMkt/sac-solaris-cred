@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Copy, RefreshCw, Trash2, Webhook, FlaskConical, Eye, Pencil } from "lucide-react";
+import { Copy, RefreshCw, Trash2, Webhook, FlaskConical, Eye, Pencil, KeyRound, UserPlus, ShieldOff, Dices } from "lucide-react";
 import {
   listOperators,
   createOperator,
@@ -32,6 +32,12 @@ import {
   listWebhookLogs,
   fixWebhookUrls,
 } from "@/lib/operators.functions";
+import {
+  listOperatorsWithAccess,
+  createOperatorUser,
+  updateOperatorPassword,
+  revokeOperatorAccess,
+} from "@/lib/operators/operator-auth.functions";
 import { copyToClipboard } from "@/lib/clipboard";
 
 type TestResult = {
@@ -144,6 +150,7 @@ function IntegracaoPage() {
           <TabsList>
             <TabsTrigger value="list">Operadores</TabsTrigger>
             <TabsTrigger value="new">Cadastrar operador</TabsTrigger>
+            <TabsTrigger value="instances">Instâncias</TabsTrigger>
             <TabsTrigger value="logs">Logs de recebimento</TabsTrigger>
           </TabsList>
 
@@ -164,11 +171,16 @@ function IntegracaoPage() {
             />
           </TabsContent>
 
+          <TabsContent value="instances">
+            <InstancesAccessPanel />
+          </TabsContent>
+
           <TabsContent value="logs">
             <LogsTable logs={logs.data ?? []} loading={logs.isLoading} onView={setSelectedPayload} />
           </TabsContent>
         </Tabs>
       </main>
+
 
       <Dialog open={!!selectedPayload} onOpenChange={(o) => !o && setSelectedPayload(null)}>
         <DialogContent className="max-w-3xl">
@@ -654,5 +666,266 @@ function LogsTable({
         </TableBody>
       </Table>
     </div>
+  );
+}
+
+// ── Instâncias — controle de login por operador ─────────────────────────
+function generatePassword() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  let out = "";
+  for (let i = 0; i < 12; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+type OperatorAccess = Awaited<ReturnType<typeof listOperatorsWithAccess>>[number];
+
+function InstancesAccessPanel() {
+  const qc = useQueryClient();
+  const listFn = useServerFn(listOperatorsWithAccess);
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["operators-access"],
+    queryFn: () => listFn(),
+  });
+
+  const [createFor, setCreateFor] = useState<OperatorAccess | null>(null);
+  const [passwordFor, setPasswordFor] = useState<OperatorAccess | null>(null);
+  const [revokeFor, setRevokeFor] = useState<OperatorAccess | null>(null);
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ["operators-access"] });
+
+  if (isLoading) {
+    return <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">Carregando…</div>;
+  }
+  if (data.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
+        Cadastre um operador antes de configurar o acesso.
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="rounded-lg border border-border bg-card">
+        <div className="border-b border-border px-4 py-3">
+          <h3 className="text-sm font-semibold">Acesso por operador</h3>
+          <p className="text-xs text-muted-foreground">
+            Configure o login individual de cada operador. Cada operador verá <strong>apenas</strong> as conversas e métricas da sua instância.
+          </p>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Operador</TableHead>
+              <TableHead>Instância</TableHead>
+              <TableHead>E-mail</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.map((op) => (
+              <TableRow key={op.id}>
+                <TableCell className="font-medium">{op.name}</TableCell>
+                <TableCell className="font-mono text-xs">{op.instance_name}</TableCell>
+                <TableCell className="text-xs">{op.email ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                <TableCell>
+                  {op.hasAccess ? (
+                    <div className="flex items-center gap-2 text-xs text-success">
+                      <span className="h-2 w-2 rounded-full bg-success" /> Acesso ativo
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="h-2 w-2 rounded-full bg-muted-foreground/40" /> Sem acesso
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-1">
+                    {op.hasAccess ? (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => setPasswordFor(op)}>
+                          <KeyRound className="h-3.5 w-3.5" /> Alterar senha
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-danger hover:bg-danger/10 hover:text-danger border-danger/40"
+                          onClick={() => setRevokeFor(op)}
+                        >
+                          <ShieldOff className="h-3.5 w-3.5" /> Revogar
+                        </Button>
+                      </>
+                    ) : (
+                      <Button size="sm" onClick={() => setCreateFor(op)} className="bg-brand text-brand-foreground hover:bg-brand-strong">
+                        <UserPlus className="h-3.5 w-3.5" /> Criar acesso
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <CreateAccessDialog operator={createFor} onClose={() => setCreateFor(null)} onSaved={() => { setCreateFor(null); refresh(); }} />
+      <ChangePasswordDialog operator={passwordFor} onClose={() => setPasswordFor(null)} onSaved={() => { setPasswordFor(null); refresh(); }} />
+      <RevokeAccessDialog operator={revokeFor} onClose={() => setRevokeFor(null)} onConfirmed={() => { setRevokeFor(null); refresh(); }} />
+    </>
+  );
+}
+
+function CreateAccessDialog({ operator, onClose, onSaved }: { operator: OperatorAccess | null; onClose: () => void; onSaved: () => void }) {
+  const createFn = useServerFn(createOperatorUser);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (operator) { setEmail(operator.email ?? ""); setPassword(""); }
+  }, [operator]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!operator) return;
+    setSaving(true);
+    try {
+      await createFn({ data: { operator_id: operator.id, email: email.trim(), password } });
+      toast.success("Acesso criado com sucesso");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao criar acesso");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={!!operator} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Criar acesso — {operator?.name}</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <Label>Operador</Label>
+            <Input value={operator?.name ?? ""} disabled className="mt-1" />
+          </div>
+          <div>
+            <Label htmlFor="access-email">E-mail *</Label>
+            <Input id="access-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" placeholder="operador@empresa.com.br" />
+          </div>
+          <div>
+            <Label htmlFor="access-pass">Senha *</Label>
+            <div className="mt-1 flex gap-2">
+              <Input id="access-pass" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" />
+              <Button type="button" variant="outline" onClick={() => setPassword(generatePassword())}>
+                <Dices className="h-3.5 w-3.5" /> Gerar
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            ℹ Ao entrar, o operador verá <strong>apenas</strong> as conversas e métricas da instância <code className="font-mono">{operator?.instance_name}</code>.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" disabled={saving} className="bg-brand text-brand-foreground hover:bg-brand-strong">
+              {saving ? "Criando…" : "Criar acesso"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ChangePasswordDialog({ operator, onClose, onSaved }: { operator: OperatorAccess | null; onClose: () => void; onSaved: () => void }) {
+  const updateFn = useServerFn(updateOperatorPassword);
+  const [pass1, setPass1] = useState("");
+  const [pass2, setPass2] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { if (operator) { setPass1(""); setPass2(""); } }, [operator]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!operator) return;
+    if (pass1 !== pass2) { toast.error("As senhas não coincidem"); return; }
+    setSaving(true);
+    try {
+      await updateFn({ data: { operator_id: operator.id, new_password: pass1 } });
+      toast.success("Senha atualizada");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar senha");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={!!operator} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Alterar senha — {operator?.name}</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <Label htmlFor="new-pass">Nova senha *</Label>
+            <div className="mt-1 flex gap-2">
+              <Input id="new-pass" required minLength={6} value={pass1} onChange={(e) => setPass1(e.target.value)} placeholder="Mínimo 6 caracteres" />
+              <Button type="button" variant="outline" onClick={() => { const p = generatePassword(); setPass1(p); setPass2(p); }}>
+                <Dices className="h-3.5 w-3.5" /> Gerar
+              </Button>
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="new-pass2">Confirmar *</Label>
+            <Input id="new-pass2" required minLength={6} value={pass2} onChange={(e) => setPass2(e.target.value)} className="mt-1" />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button type="submit" disabled={saving} className="bg-brand text-brand-foreground hover:bg-brand-strong">
+              {saving ? "Salvando…" : "Salvar nova senha"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RevokeAccessDialog({ operator, onClose, onConfirmed }: { operator: OperatorAccess | null; onClose: () => void; onConfirmed: () => void }) {
+  const revokeFn = useServerFn(revokeOperatorAccess);
+  const [running, setRunning] = useState(false);
+
+  async function handleConfirm() {
+    if (!operator) return;
+    setRunning(true);
+    try {
+      await revokeFn({ data: { operator_id: operator.id } });
+      toast.success("Acesso revogado");
+      onConfirmed();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao revogar acesso");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <AlertDialog open={!!operator} onOpenChange={(o) => !o && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Revogar acesso de {operator?.name}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            O usuário será removido do sistema e não poderá mais entrar no painel. As conversas e métricas do operador serão mantidas.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={running}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirm} disabled={running} className="bg-danger text-white hover:bg-danger/90">
+            {running ? "Revogando…" : "Revogar acesso"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

@@ -3,6 +3,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { supabase } from "@/integrations/supabase/client";
 import { TenantProvider } from "@/contexts/tenant-context";
+import { ProfileProvider } from "@/contexts/profile-context";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -18,16 +19,17 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
   return (
-    <TenantProvider>
-      <SidebarProvider>
-        <div className="flex min-h-screen w-full bg-background">
-          <AppSidebar />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <Outlet />
+    <ProfileProvider>
+      <TenantProvider>
+        <SidebarProvider>
+          <div className="flex min-h-screen w-full bg-background">
+            <AppSidebar />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <Outlet />
+            </div>
           </div>
-        </div>
-      </SidebarProvider>
-    </TenantProvider>
+        </SidebarProvider>
+      </TenantProvider>
+    </ProfileProvider>
   );
 }
-
