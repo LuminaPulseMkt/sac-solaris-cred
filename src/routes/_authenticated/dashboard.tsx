@@ -13,6 +13,8 @@ import {
 import { AppHeader } from "@/components/app-header";
 import { Button } from "@/components/ui/button";
 import { MetricCard } from "@/components/metric-card";
+import { InstanceStatusCard } from "@/components/instance-status-card";
+import { useProfile } from "@/contexts/profile-context";
 import { listConversations, listOperatorStats } from "@/lib/operators.functions";
 import { formatDuration } from "@/lib/sac/format";
 
@@ -74,6 +76,7 @@ function ChartCard({ title, subtitle, children }: { title: string; subtitle?: st
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 function DashboardPage() {
+  const profile = useProfile();
   const listFn = useServerFn(listConversations);
   const statsFn = useServerFn(listOperatorStats);
 
@@ -216,6 +219,14 @@ function DashboardPage() {
       />
 
       <main className="flex-1 space-y-6 p-4 md:p-6">
+
+        {/* ── Status da instância WhatsApp (operador) ──────────── */}
+        {profile?.role === "operator" && profile.operator && (
+          <InstanceStatusCard
+            instanceName={profile.operator.instance_name}
+            operatorName={profile.operator.name}
+          />
+        )}
 
         {/* ── KPI Cards ──────────────────────────────────────────── */}
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

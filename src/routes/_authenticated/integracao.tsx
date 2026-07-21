@@ -51,6 +51,7 @@ type TestResult = {
 };
 import { deriveOperatorState, operatorStateMeta } from "@/lib/sac/operator-status";
 import { formatDateTime } from "@/lib/sac/format";
+import { InstanceStatusCard } from "@/components/instance-status-card";
 
 export const Route = createFileRoute("/_authenticated/integracao")({
   head: () => ({
@@ -767,6 +768,16 @@ function InstancesAccessPanel() {
             ))}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Status de conexão por instância */}
+      <div className="mt-6 space-y-3">
+        <h3 className="text-sm font-semibold">Conexão WhatsApp</h3>
+        <div className="grid gap-3 md:grid-cols-2">
+          {data.map((op) => (
+            <InstanceStatusCard key={op.id} instanceName={op.instance_name} operatorName={op.name} />
+          ))}
+        </div>
       </div>
 
       <CreateAccessDialog operator={createFor} onClose={() => setCreateFor(null)} onSaved={() => { setCreateFor(null); refresh(); }} />
