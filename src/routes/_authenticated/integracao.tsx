@@ -789,12 +789,20 @@ function InstancesAccessPanel() {
 
 function CreateAccessDialog({ operator, onClose, onSaved }: { operator: OperatorAccess | null; onClose: () => void; onSaved: () => void }) {
   const createFn = useServerFn(createOperatorUser);
+  type Mode = "quick" | "custom";
+  const [mode, setMode] = useState<Mode>("quick");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
+  const [result, setResult] = useState<{ email: string; password: string; generated: boolean } | null>(null);
 
   useEffect(() => {
-    if (operator) { setEmail(operator.email ?? ""); setPassword(""); }
+    if (operator) {
+      setEmail(operator.email ?? "");
+      setPassword("");
+      setMode("quick");
+      setResult(null);
+    }
   }, [operator]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -802,8 +810,14 @@ function CreateAccessDialog({ operator, onClose, onSaved }: { operator: Operator
     if (!operator) return;
     setSaving(true);
     try {
-      await createFn({ data: { operator_id: operator.id, email: email.trim(), password } });
-      toast.success("Acesso criado com sucesso");
+      const res = await createFn({
+        data: {
+          operator_id: operator.id,
+          email: mode === "custom" ? email.trim() || undefined : undefined,
+          password: mode === "custom" ? password || undefined : undefined,
+        },
+      });
+      setResult(res);
       onSaved();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao criar acesso");
@@ -812,42 +826,116 @@ function CreateAccessDialog({ operator, onClose, onSaved }: { operator: Operator
     }
   }
 
+  async function copyAll() {
+    if (!result) return;
+    const ok = await copyToClipboard(`Login: ${result.email}\nSenha: ${result.password}`);
+    if (ok) toast.success("Credenciais copiadas");
+    else toast.error("Não foi possível copiar");
+  }
+
   return (
     <Dialog open={!!operator} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>Criar acesso — {operator?.name}</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div>
-            <Label>Operador</Label>
-            <Input value={operator?.name ?? ""} disabled className="mt-1" />
-          </div>
-          <div>
-            <Label htmlFor="access-email">E-mail *</Label>
-            <Input id="access-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" placeholder="operador@empresa.com.br" />
-          </div>
-          <div>
-            <Label htmlFor="access-pass">Senha *</Label>
-            <div className="mt-1 flex gap-2">
-              <Input id="access-pass" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" />
-              <Button type="button" variant="outline" onClick={() => setPassword(generatePassword())}>
-                <Dices className="h-3.5 w-3.5" /> Gerar
+
+        {result ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 rounded-md bg-success/10 p-3 text-sm text-success">
+              <CheckCircle className="h-4 w-4 flex-shrink-0" />
+              Acesso criado com sucesso!
+            </div>
+            <p className="text-sm text-muted-foreground">Repasse estas credenciais ao operador:</p>
+            <div className="space-y-1">
+              <Label className="text-xs">Login (e-mail)</Label>
+              <div className="flex gap-2">
+                <Input value={result.email} readOnly className="font-mono text-xs" />
+                <Button type="button" size="icon" variant="outline"
+                  onClick={async () => { const ok = await copyToClipboard(result.email); if (ok) toast.success("Copiado"); else toast.error("Falha ao copiar"); }}>
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Senha</Label>
+              <div className="flex gap-2">
+                <Input value={result.password} readOnly className="font-mono text-xs" />
+                <Button type="button" size="icon" variant="outline"
+                  onClick={async () => { const ok = await copyToClipboard(result.password); if (ok) toast.success("Copiado"); else toast.error("Falha ao copiar"); }}>
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+            <p className="flex items-center gap-1.5 text-xs text-amber-600">
+              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+              Anote a senha agora — ela não será exibida novamente.
+            </p>
+            <div className="flex gap-2 pt-1">
+              <Button className="flex-1" variant="outline" onClick={copyAll}>
+                <Copy className="h-3.5 w-3.5 mr-2" /> Copiar tudo
               </Button>
+              <Button className="flex-1" onClick={onClose}>Fechar</Button>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            ℹ Ao entrar, o operador verá <strong>apenas</strong> as conversas e métricas da instância <code className="font-mono">{operator?.instance_name}</code>.
-          </p>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" disabled={saving} className="bg-brand text-brand-foreground hover:bg-brand-strong">
-              {saving ? "Criando…" : "Criar acesso"}
-            </Button>
-          </div>
-        </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="flex rounded-md border overflow-hidden text-sm">
+              <button type="button"
+                className={`flex-1 py-2 text-center transition-colors ${mode === "quick" ? "bg-brand text-brand-foreground font-medium" : "hover:bg-muted text-muted-foreground"}`}
+                onClick={() => setMode("quick")}>
+                Rápido (só pelo nome)
+              </button>
+              <button type="button"
+                className={`flex-1 py-2 text-center transition-colors border-l ${mode === "custom" ? "bg-brand text-brand-foreground font-medium" : "hover:bg-muted text-muted-foreground"}`}
+                onClick={() => setMode("custom")}>
+                Personalizado
+              </button>
+            </div>
+
+            <div>
+              <Label>Operador</Label>
+              <Input value={operator?.name ?? ""} disabled className="mt-1" />
+            </div>
+
+            {mode === "quick" ? (
+              <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
+                <p>✓ Login e senha gerados automaticamente pelo sistema</p>
+                <p>✓ As credenciais aparecerão aqui após a criação para você copiar</p>
+                <p>✓ O operador verá apenas as conversas da instância <code className="ml-1 font-mono">{operator?.instance_name}</code></p>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <Label htmlFor="access-email">E-mail *</Label>
+                  <Input id="access-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" placeholder="operador@empresa.com.br" />
+                </div>
+                <div>
+                  <Label htmlFor="access-pass">Senha *</Label>
+                  <div className="mt-1 flex gap-2">
+                    <Input id="access-pass" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" />
+                    <Button type="button" variant="outline" onClick={() => setPassword(generatePassword())}>
+                      <Dices className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  ℹ O operador verá apenas as conversas da instância <code className="ml-1 font-mono">{operator?.instance_name}</code>
+                </p>
+              </>
+            )}
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+              <Button type="submit" disabled={saving} className="bg-brand text-brand-foreground hover:bg-brand-strong">
+                {saving ? "Criando…" : "Criar acesso"}
+              </Button>
+            </div>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );
 }
+
 
 function ChangePasswordDialog({ operator, onClose, onSaved }: { operator: OperatorAccess | null; onClose: () => void; onSaved: () => void }) {
   const updateFn = useServerFn(updateOperatorPassword);
