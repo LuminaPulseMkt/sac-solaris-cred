@@ -350,6 +350,7 @@ export type Database = {
           channel: string
           created_at: string
           description: string | null
+          email: string | null
           id: string
           instance_name: string
           last_received_at: string | null
@@ -358,12 +359,14 @@ export type Database = {
           status: string
           token: string
           updated_at: string
+          user_id: string | null
           webhook_url: string | null
         }
         Insert: {
           channel?: string
           created_at?: string
           description?: string | null
+          email?: string | null
           id?: string
           instance_name: string
           last_received_at?: string | null
@@ -372,12 +375,14 @@ export type Database = {
           status?: string
           token?: string
           updated_at?: string
+          user_id?: string | null
           webhook_url?: string | null
         }
         Update: {
           channel?: string
           created_at?: string
           description?: string | null
+          email?: string | null
           id?: string
           instance_name?: string
           last_received_at?: string | null
@@ -386,6 +391,7 @@ export type Database = {
           status?: string
           token?: string
           updated_at?: string
+          user_id?: string | null
           webhook_url?: string | null
         }
         Relationships: []
@@ -421,6 +427,7 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          operator_id: string | null
           role: string | null
           tenant_id: string | null
           user_id: string
@@ -428,6 +435,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
+          operator_id?: string | null
           role?: string | null
           tenant_id?: string | null
           user_id: string
@@ -435,11 +443,19 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string
+          operator_id?: string | null
           role?: string | null
           tenant_id?: string | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tenant_users_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tenant_users_tenant_id_fkey"
             columns: ["tenant_id"]
