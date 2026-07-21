@@ -51,6 +51,7 @@ type TestResult = {
 };
 import { deriveOperatorState, operatorStateMeta } from "@/lib/sac/operator-status";
 import { formatDateTime } from "@/lib/sac/format";
+import { InstanceStatusCard } from "@/components/instance-status-card";
 
 export const Route = createFileRoute("/_authenticated/integracao")({
   head: () => ({
