@@ -769,6 +769,16 @@ function InstancesAccessPanel() {
         </Table>
       </div>
 
+      {/* Status de conexão por instância */}
+      <div className="mt-6 space-y-3">
+        <h3 className="text-sm font-semibold">Conexão WhatsApp</h3>
+        <div className="grid gap-3 md:grid-cols-2">
+          {data.map((op) => (
+            <InstanceStatusCard key={op.id} instanceName={op.instance_name} operatorName={op.name} />
+          ))}
+        </div>
+      </div>
+
       <CreateAccessDialog operator={createFor} onClose={() => setCreateFor(null)} onSaved={() => { setCreateFor(null); refresh(); }} />
       <ChangePasswordDialog operator={passwordFor} onClose={() => setPasswordFor(null)} onSaved={() => { setPasswordFor(null); refresh(); }} />
       <RevokeAccessDialog operator={revokeFor} onClose={() => setRevokeFor(null)} onConfirmed={() => { setRevokeFor(null); refresh(); }} />
