@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Copy, RefreshCw, Trash2, Webhook, FlaskConical, Eye, Pencil } from "lucide-react";
+import { Copy, RefreshCw, Trash2, Webhook, FlaskConical, Eye, Pencil, KeyRound, UserPlus, ShieldOff, Dices } from "lucide-react";
 import {
   listOperators,
   createOperator,
@@ -32,6 +32,12 @@ import {
   listWebhookLogs,
   fixWebhookUrls,
 } from "@/lib/operators.functions";
+import {
+  listOperatorsWithAccess,
+  createOperatorUser,
+  updateOperatorPassword,
+  revokeOperatorAccess,
+} from "@/lib/operators/operator-auth.functions";
 import { copyToClipboard } from "@/lib/clipboard";
 
 type TestResult = {
