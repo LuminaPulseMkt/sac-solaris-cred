@@ -36,6 +36,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { SolarisLogo } from "@/components/solaris-logo";
 import { useTenant } from "@/contexts/tenant-context";
+import { useProfile } from "@/contexts/profile-context";
 import { isSuperAdmin } from "@/lib/tenants/tenants.functions";
 
 const overview = [
@@ -61,11 +62,14 @@ export function AppSidebar() {
   const queryClient = useQueryClient();
   const isActive = (url: string) => path === url.split("#")[0];
   const { tenants, activeTenant, setActiveTenantId } = useTenant();
+  const profile = useProfile();
+  const isOperator = profile?.role === "operator";
   const checkSuperAdmin = useServerFn(isSuperAdmin);
   const { data: superAdmin } = useQuery({
     queryKey: ["is-super-admin"],
     queryFn: () => checkSuperAdmin(),
     staleTime: 5 * 60_000,
+    enabled: !isOperator,
   });
 
   const handleLogout = async () => {
@@ -92,11 +96,18 @@ export function AppSidebar() {
 
   const adminItem = { title: "Empresas", url: "/admin", icon: Building2 };
 
+  const visibleOverview = isOperator
+    ? overview.filter((i) => ["/dashboard", "/conversas"].includes(i.url))
+    : overview;
+  const visibleAlertsReports = isOperator
+    ? alertsReports.filter((i) => ["/alertas", "/relatorios"].includes(i.url))
+    : alertsReports;
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="px-3 py-4 space-y-3">
         <SolarisLogo />
-        {tenants.length > 1 && activeTenant && (
+        {!isOperator && tenants.length > 1 && activeTenant && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -127,22 +138,24 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>Visão geral</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>{overview.map(renderItem)}</SidebarMenu>
+            <SidebarMenu>{visibleOverview.map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>
           <SidebarGroupLabel>Alertas & relatórios</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>{alertsReports.map(renderItem)}</SidebarMenu>
+            <SidebarMenu>{visibleAlertsReports.map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Integração</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>{integration.map(renderItem)}</SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        {superAdmin?.isSuperAdmin && (
+        {!isOperator && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Integração</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>{integration.map(renderItem)}</SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+        {!isOperator && superAdmin?.isSuperAdmin && (
           <SidebarGroup>
             <SidebarGroupLabel>Administração</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -152,6 +165,12 @@ export function AppSidebar() {
         )}
       </SidebarContent>
       <SidebarFooter>
+        {isOperator && profile?.operator && (
+          <div className="px-3 py-2 text-xs border-t border-border">
+            <p className="font-medium text-foreground truncate">{profile.operator.name}</p>
+            <p className="text-muted-foreground truncate font-mono">{profile.operator.instance_name}</p>
+          </div>
+        )}
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={handleLogout}>

@@ -144,6 +144,7 @@ function IntegracaoPage() {
           <TabsList>
             <TabsTrigger value="list">Operadores</TabsTrigger>
             <TabsTrigger value="new">Cadastrar operador</TabsTrigger>
+            <TabsTrigger value="instances">Instâncias</TabsTrigger>
             <TabsTrigger value="logs">Logs de recebimento</TabsTrigger>
           </TabsList>
 
@@ -164,11 +165,16 @@ function IntegracaoPage() {
             />
           </TabsContent>
 
+          <TabsContent value="instances">
+            <InstancesAccessPanel />
+          </TabsContent>
+
           <TabsContent value="logs">
             <LogsTable logs={logs.data ?? []} loading={logs.isLoading} onView={setSelectedPayload} />
           </TabsContent>
         </Tabs>
       </main>
+
 
       <Dialog open={!!selectedPayload} onOpenChange={(o) => !o && setSelectedPayload(null)}>
         <DialogContent className="max-w-3xl">
