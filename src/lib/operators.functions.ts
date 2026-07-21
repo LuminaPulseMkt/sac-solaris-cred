@@ -183,23 +183,47 @@ export const deleteConversations = createServerFn({ method: "POST" }).middleware
 
 const conversationIdSchema = z.object({ id: z.string().uuid() });
 
+async function resolveMyOperatorId(userId: string | undefined): Promise<string | null> {
+  if (!userId) return null;
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("operators")
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
 export const getConversationDetail = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
   .inputValidator((input) => conversationIdSchema.parse(input))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const myOpId = await resolveMyOperatorId((context as { userId?: string }).userId);
     const { data: conversation, error } = await supabaseAdmin
       .from("conversations")
       .select("*")
       .eq("id", data.id)
       .maybeSingle();
     if (error) throw new Error(error.message);
+    if (myOpId && conversation && conversation.operator_id !== myOpId) {
+      throw new Error("Acesso negado");
+    }
     return conversation ?? null;
   });
 
 export const listConversationMessages = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
   .inputValidator((input) => conversationIdSchema.parse(input))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const myOpId = await resolveMyOperatorId((context as { userId?: string }).userId);
+    if (myOpId) {
+      const { data: conv } = await supabaseAdmin
+        .from("conversations")
+        .select("operator_id")
+        .eq("id", data.id)
+        .maybeSingle();
+      if (!conv || conv.operator_id !== myOpId) throw new Error("Acesso negado");
+    }
     const { data: messages, error } = await supabaseAdmin
       .from("messages")
       .select("*")
@@ -209,24 +233,32 @@ export const listConversationMessages = createServerFn({ method: "GET" }).middle
     return messages ?? [];
   });
 
-export const listConversations = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async () => {
+export const listConversations = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data, error } = await supabaseAdmin
+  const myOpId = await resolveMyOperatorId((context as { userId?: string }).userId);
+  let query = supabaseAdmin
     .from("conversations")
     .select("*, operators(name, instance_name)")
     .order("updated_at", { ascending: false })
     .limit(1000);
+  if (myOpId) query = query.eq("operator_id", myOpId);
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data ?? [];
 });
 
-export const listOperatorStats = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async () => {
+export const listOperatorStats = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: ops, error } = await supabaseAdmin.from("operators").select("*").order("created_at", { ascending: false });
+  const myOpId = await resolveMyOperatorId((context as { userId?: string }).userId);
+  let opQuery = supabaseAdmin.from("operators").select("*").order("created_at", { ascending: false });
+  if (myOpId) opQuery = opQuery.eq("id", myOpId);
+  const { data: ops, error } = await opQuery;
   if (error) throw new Error(error.message);
-  const { data: convs } = await supabaseAdmin
+  let convQuery = supabaseAdmin
     .from("conversations")
     .select("operator_id, score_sac, avg_response_time_s, converted, status, updated_at, started_at");
+  if (myOpId) convQuery = convQuery.eq("operator_id", myOpId);
+  const { data: convs } = await convQuery;
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const stats = (ops ?? []).map((op) => {
     const cs = (convs ?? []).filter((c) => c.operator_id === op.id);
