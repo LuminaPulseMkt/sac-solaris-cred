@@ -100,15 +100,13 @@ export const createOperatorUser = createServerFn({ method: "POST" })
     }
 
     const operatorName = existing?.name ?? "operador";
-    const slug = operatorName
+    const firstName = operatorName.split(/\s+/)[0] ?? "operador";
+    const slug = firstName
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]/g, ".")
-      .replace(/\.+/g, ".")
-      .replace(/^\.|\.$/g, "");
-    const randomSuffix = Math.random().toString(36).slice(2, 7);
-    const generatedEmail = data.email ?? `${slug || "operador"}.${randomSuffix}@sac.interno`;
+      .replace(/[^a-z0-9]/g, "");
+    const generatedEmail = data.email ?? `${slug || "operador"}cred@sac.solaris`;
     const generatedPassword = data.password ?? generateStrongPassword();
 
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
