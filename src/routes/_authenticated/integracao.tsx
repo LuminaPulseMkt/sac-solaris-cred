@@ -898,7 +898,8 @@ function CreateAccessDialog({ operator, onClose, onSaved }: { operator: Operator
 
             {mode === "quick" ? (
               <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
-                <p>✓ Login e senha gerados automaticamente pelo sistema</p>
+                <p>✓ Login gerado no formato <code className="font-mono">primeironomecred@sac.solaris</code></p>
+                <p>✓ Senha forte gerada automaticamente pelo sistema</p>
                 <p>✓ As credenciais aparecerão aqui após a criação para você copiar</p>
                 <p>✓ O operador verá apenas as conversas da instância <code className="ml-1 font-mono">{operator?.instance_name}</code></p>
               </div>
