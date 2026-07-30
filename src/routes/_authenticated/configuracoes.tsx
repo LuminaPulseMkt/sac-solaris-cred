@@ -196,6 +196,9 @@ function GeralTab() {
   return (
     <div className="space-y-4">
       <section className="grid gap-4 lg:grid-cols-2">
+        <BusinessHoursCard />
+      </section>
+      <section className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-lg border border-border bg-card p-4">
           <h2 className="mb-3 text-sm font-semibold">Metas de SLA por canal (segundos)</h2>
           <div className="grid gap-3 sm:grid-cols-3">
