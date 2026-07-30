@@ -36,6 +36,22 @@ async function getSettingValue(key: string): Promise<string> {
   return data?.value ?? "";
 }
 
+/** Lê a janela comercial configurada (dias úteis + horário) de app_settings. */
+export async function getBusinessHoursConfig(): Promise<BusinessHoursConfig> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("app_settings")
+      .select("key,value")
+      .in("key", Object.values(BUSINESS_HOURS_KEYS));
+    const raw: Record<string, string | null> = {};
+    for (const row of data ?? []) raw[row.key] = row.value;
+    return parseBusinessHoursConfig(raw);
+  } catch {
+    return DEFAULT_BUSINESS_HOURS;
+  }
+}
+
+
 function formatTranscript(messages: AnalyzeMessage[], operatorName: string, leadName: string): string {
   return messages
     .map((m) => {
