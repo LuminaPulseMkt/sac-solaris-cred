@@ -181,6 +181,7 @@ function ConversasPage() {
                   <TableHead>Operador</TableHead>
                   <TableHead>Lead</TableHead>
                   <TableHead>Telefone</TableHead>
+                  <TableHead>Última mensagem</TableHead>
                   <TableHead>Iniciada</TableHead>
                   <TableHead>Tempo médio</TableHead>
                   <TableHead>Score</TableHead>
