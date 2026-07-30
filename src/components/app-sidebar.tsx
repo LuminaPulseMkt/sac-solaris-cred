@@ -38,6 +38,7 @@ import { SolarisLogo } from "@/components/solaris-logo";
 import { useTenant } from "@/contexts/tenant-context";
 import { useProfile } from "@/contexts/profile-context";
 import { isSuperAdmin } from "@/lib/tenants/tenants.functions";
+import { useHasSession } from "@/hooks/use-has-session";
 
 const overview = [
   { title: "Visão geral", url: "/dashboard", icon: LayoutDashboard },

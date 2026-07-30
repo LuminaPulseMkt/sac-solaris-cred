@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyTenants, type Tenant } from "@/lib/tenants/tenants.functions";
+import { useHasSession } from "@/hooks/use-has-session";
 
 const STORAGE_KEY = "sac.activeTenantId";
 
@@ -23,10 +24,13 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     return window.localStorage.getItem(STORAGE_KEY);
   });
 
+  const hasSession = useHasSession();
   const { data: tenants = [], isLoading } = useQuery({
     queryKey: ["my-tenants"],
     queryFn: () => fetchTenants(),
     staleTime: 60_000,
+    enabled: hasSession,
+    retry: false,
   });
 
   // Escolhe tenant padrão quando lista chega
