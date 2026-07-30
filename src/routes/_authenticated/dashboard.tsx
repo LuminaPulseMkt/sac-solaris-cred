@@ -181,13 +181,44 @@ function DashboardPage() {
     return Object.entries(map).map(([k, v]) => ({ name: labels[k] ?? k, value: v, color: colors[k] ?? "var(--color-muted)" }));
   }, [todayRows]);
 
-  // ── Top operadores ────────────────────────────────────────────────────────
-  const topOps = useMemo(() =>
-    [...opStats]
-      .sort((a, b) => (b.avgScore ?? 0) - (a.avgScore ?? 0))
-      .slice(0, 5)
-      .map((o) => ({ name: o.name, score: o.avgScore ?? 0, msgs: o.messages_today ?? 0, total: o.total ?? 0 }))
-  , [opStats]);
+  // ── Top operadores (score médio dos últimos 7 dias úteis) ────────────────
+  const topOps = useMemo(() => {
+    // Monta o conjunto das últimas 7 datas úteis (seg–sex), incluindo hoje se for útil.
+    const businessDays = new Set<string>();
+    const cursor = new Date();
+    cursor.setHours(0, 0, 0, 0);
+    while (businessDays.size < 7) {
+      const dow = cursor.getDay();
+      if (dow !== 0 && dow !== 6) businessDays.add(cursor.toISOString().slice(0, 10));
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
+    // Agrega score por operador apenas nas conversas dessa janela.
+    const agg = new Map<string, { sum: number; count: number }>();
+    for (const c of rows) {
+      const opId = (c as { operator_id?: string | null }).operator_id;
+      if (!opId || !c.started_at) continue;
+      if (!businessDays.has(c.started_at.slice(0, 10))) continue;
+      const cur = agg.get(opId) ?? { sum: 0, count: 0 };
+      cur.sum += c.score_sac ?? 0;
+      cur.count++;
+      agg.set(opId, cur);
+    }
+
+    return opStats
+      .map((o) => {
+        const a = agg.get(o.id);
+        return {
+          name: o.name,
+          score: a && a.count ? Math.round(a.sum / a.count) : 0,
+          msgs: o.messages_today ?? 0,
+          total: a?.count ?? 0,
+        };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+  }, [rows, opStats]);
+
 
   if (rows.length === 0 && opStats.length === 0) {
     return (
