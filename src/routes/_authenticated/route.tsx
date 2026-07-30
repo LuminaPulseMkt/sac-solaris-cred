@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { supabase } from "@/integrations/supabase/client";
 import { TenantProvider } from "@/contexts/tenant-context";
 import { ProfileProvider } from "@/contexts/profile-context";
+import { DataChatBubble } from "@/components/data-chat-bubble";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -28,6 +29,7 @@ function AuthenticatedLayout() {
               <Outlet />
             </div>
           </div>
+          <DataChatBubble />
         </SidebarProvider>
       </TenantProvider>
     </ProfileProvider>
