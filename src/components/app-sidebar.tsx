@@ -38,6 +38,7 @@ import { SolarisLogo } from "@/components/solaris-logo";
 import { useTenant } from "@/contexts/tenant-context";
 import { useProfile } from "@/contexts/profile-context";
 import { isSuperAdmin } from "@/lib/tenants/tenants.functions";
+import { useHasSession } from "@/hooks/use-has-session";
 
 const overview = [
   { title: "Visão geral", url: "/dashboard", icon: LayoutDashboard },
@@ -65,11 +66,13 @@ export function AppSidebar() {
   const profile = useProfile();
   const isOperator = profile?.role === "operator";
   const checkSuperAdmin = useServerFn(isSuperAdmin);
+  const hasSession = useHasSession();
   const { data: superAdmin } = useQuery({
     queryKey: ["is-super-admin"],
     queryFn: () => checkSuperAdmin(),
     staleTime: 5 * 60_000,
-    enabled: !isOperator,
+    enabled: !isOperator && hasSession,
+    retry: false,
   });
 
   const handleLogout = async () => {
