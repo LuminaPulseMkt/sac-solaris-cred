@@ -61,8 +61,127 @@ function ConfiguracoesPage() {
   );
 }
 
+function BusinessHoursCard() {
+  const qc = useQueryClient();
+  const fetchSettings = useServerFn(getSettings);
+  const save = useServerFn(saveSetting);
+  const settings = useQuery({ queryKey: ["settings"], queryFn: () => fetchSettings() });
+
+  const [cfg, setCfg] = useState<BusinessHoursConfig>(DEFAULT_BUSINESS_HOURS);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (settings.data) setCfg(parseBusinessHoursConfig(settings.data.values));
+  }, [settings.data]);
+
+  function toggleDay(day: number) {
+    setCfg((c) => ({
+      ...c,
+      days: c.days.includes(day) ? c.days.filter((d) => d !== day) : [...c.days, day].sort((a, b) => a - b),
+    }));
+  }
+
+  async function handleSave() {
+    if (!cfg.days.length) {
+      toast.error("Selecione ao menos um dia da semana");
+      return;
+    }
+    setSaving(true);
+    try {
+      await Promise.all([
+        save({ data: { key: BUSINESS_HOURS_KEYS.enabled, value: String(cfg.enabled) } }),
+        save({ data: { key: BUSINESS_HOURS_KEYS.start, value: minutesToTime(cfg.startMinutes) } }),
+        save({ data: { key: BUSINESS_HOURS_KEYS.end, value: minutesToTime(cfg.endMinutes) } }),
+        save({ data: { key: BUSINESS_HOURS_KEYS.days, value: cfg.days.join(",") } }),
+        save({ data: { key: BUSINESS_HOURS_KEYS.timezone, value: cfg.timezone } }),
+      ]);
+      toast.success("Horário comercial salvo");
+      qc.invalidateQueries({ queryKey: ["settings"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar horário comercial");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-sm font-semibold">Horário comercial das análises</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            As análises de IA consideram apenas mensagens em dias úteis dentro desta janela.
+          </p>
+        </div>
+        <Switch checked={cfg.enabled} onCheckedChange={(v) => setCfg((c) => ({ ...c, enabled: v }))} />
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="bh-start">Início</Label>
+          <Input
+            id="bh-start"
+            type="time"
+            disabled={!cfg.enabled}
+            value={minutesToTime(cfg.startMinutes)}
+            onChange={(e) =>
+              setCfg((c) => ({ ...c, startMinutes: parseTimeToMinutes(e.target.value) ?? c.startMinutes }))
+            }
+            className="mt-1 h-9"
+          />
+        </div>
+        <div>
+          <Label htmlFor="bh-end">Fim</Label>
+          <Input
+            id="bh-end"
+            type="time"
+            disabled={!cfg.enabled}
+            value={minutesToTime(cfg.endMinutes)}
+            onChange={(e) =>
+              setCfg((c) => ({ ...c, endMinutes: parseTimeToMinutes(e.target.value) ?? c.endMinutes }))
+            }
+            className="mt-1 h-9"
+          />
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <Label>Dias considerados</Label>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {WEEKDAY_LABELS.map((label, day) => {
+            const active = cfg.days.includes(day);
+            return (
+              <button
+                key={label}
+                type="button"
+                disabled={!cfg.enabled}
+                onClick={() => toggleDay(day)}
+                className={cn(
+                  "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50",
+                  active
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-surface text-muted-foreground hover:bg-muted",
+                )}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <p className="mt-3 text-xs text-muted-foreground">{describeBusinessHours(cfg)}</p>
+
+      <Button onClick={handleSave} disabled={saving} className="mt-4 h-9">
+        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar horário comercial"}
+      </Button>
+    </div>
+  );
+}
+
 function GeralTab() {
   const { sla, setSla, minScore, setMinScore, theme, setTheme } = useSettingsStore();
+
   return (
     <div className="space-y-4">
       <section className="grid gap-4 lg:grid-cols-2">
