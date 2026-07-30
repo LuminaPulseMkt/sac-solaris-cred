@@ -65,11 +65,13 @@ export function AppSidebar() {
   const profile = useProfile();
   const isOperator = profile?.role === "operator";
   const checkSuperAdmin = useServerFn(isSuperAdmin);
+  const hasSession = useHasSession();
   const { data: superAdmin } = useQuery({
     queryKey: ["is-super-admin"],
     queryFn: () => checkSuperAdmin(),
     staleTime: 5 * 60_000,
-    enabled: !isOperator,
+    enabled: !isOperator && hasSession,
+    retry: false,
   });
 
   const handleLogout = async () => {
