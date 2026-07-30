@@ -21,6 +21,17 @@ import {
   getActiveInstances,
 } from "@/lib/settings/settings.functions";
 import { testWhisperTranscription, transcribePendingAudios } from "@/lib/ai/ai.functions";
+import { cn } from "@/lib/utils";
+import {
+  BUSINESS_HOURS_KEYS,
+  DEFAULT_BUSINESS_HOURS,
+  WEEKDAY_LABELS,
+  describeBusinessHours,
+  minutesToTime,
+  parseBusinessHoursConfig,
+  parseTimeToMinutes,
+  type BusinessHoursConfig,
+} from "@/lib/sac/business-hours";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({
