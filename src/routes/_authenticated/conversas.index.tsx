@@ -190,11 +190,11 @@ function ConversasPage() {
               </TableHeader>
               <TableBody>
                 {isLoading && (
-                  <TableRow><TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">Carregando…</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">Carregando…</TableCell></TableRow>
                 )}
                 {!isLoading && pageItems.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-12 text-center">
+                    <TableCell colSpan={9} className="py-12 text-center">
                       <MessagesSquare className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
                       <p className="text-sm font-medium">Nenhuma conversa registrada ainda.</p>
                       <p className="mt-1 text-xs text-muted-foreground">
@@ -229,6 +229,21 @@ function ConversasPage() {
                         )}
                       </TableCell>
                       <TableCell className="font-mono text-xs">{c.lead_phone}</TableCell>
+                      <TableCell className="max-w-[260px]">
+                        {c.last_message ? (
+                          <div className="space-y-0.5">
+                            <p className="truncate text-sm">
+                              <span className="text-muted-foreground">
+                                {c.last_message.from_role === "operator" ? "Operador: " : "Lead: "}
+                              </span>
+                              {c.last_message.text}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">{formatDateTime(c.last_message.at)}</p>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{formatDateTime(c.started_at)}</TableCell>
                       <TableCell className="text-sm tabular-nums">
                         {c.avg_response_time_s ? formatDuration(c.avg_response_time_s) : "—"}
