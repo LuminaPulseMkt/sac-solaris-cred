@@ -244,12 +244,13 @@ export const listConversations = createServerFn({ method: "GET" }).middleware([r
   if (myOpId) query = query.eq("operator_id", myOpId);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  const convs = data ?? [];
+  type LastMessage = { text: string; at: string; from_role: string } | null;
+  const convs = (data ?? []).map((c) => ({ ...c, last_message: null as LastMessage }));
   if (convs.length === 0) return convs;
 
   // Última mensagem por conversa (para exibir prévia + data/hora na listagem)
   const ids = convs.map((c) => c.id);
-  const lastByConv = new Map<string, { text: string; at: string; from_role: string }>();
+  const lastByConv = new Map<string, NonNullable<LastMessage>>();
   const CHUNK = 200;
   for (let i = 0; i < ids.length; i += CHUNK) {
     const slice = ids.slice(i, i + CHUNK);
@@ -276,7 +277,7 @@ export const listConversations = createServerFn({ method: "GET" }).middleware([r
 
   return convs.map((c) => ({
     ...c,
-    last_message: lastByConv.get(c.id) ?? null,
+    last_message: (lastByConv.get(c.id) ?? null) as LastMessage,
   }));
 });
 
