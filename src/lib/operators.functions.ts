@@ -244,7 +244,40 @@ export const listConversations = createServerFn({ method: "GET" }).middleware([r
   if (myOpId) query = query.eq("operator_id", myOpId);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return data ?? [];
+  const convs = data ?? [];
+  if (convs.length === 0) return convs;
+
+  // Última mensagem por conversa (para exibir prévia + data/hora na listagem)
+  const ids = convs.map((c) => c.id);
+  const lastByConv = new Map<string, { text: string; at: string; from_role: string }>();
+  const CHUNK = 200;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const slice = ids.slice(i, i + CHUNK);
+    const { data: msgs } = await supabaseAdmin
+      .from("messages")
+      .select("conversation_id, message_text, message_type, from_role, sent_at")
+      .in("conversation_id", slice)
+      .order("sent_at", { ascending: false })
+      .limit(5000);
+    for (const m of msgs ?? []) {
+      if (!m.conversation_id || lastByConv.has(m.conversation_id)) continue;
+      const text = m.message_text?.trim()
+        ? m.message_text.trim()
+        : m.message_type && m.message_type !== "text"
+          ? `[${m.message_type}]`
+          : "—";
+      lastByConv.set(m.conversation_id, {
+        text,
+        at: m.sent_at,
+        from_role: m.from_role,
+      });
+    }
+  }
+
+  return convs.map((c) => ({
+    ...c,
+    last_message: lastByConv.get(c.id) ?? null,
+  }));
 });
 
 export const listOperatorStats = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
