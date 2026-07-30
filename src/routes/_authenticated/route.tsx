@@ -29,6 +29,7 @@ function AuthenticatedLayout() {
               <Outlet />
             </div>
           </div>
+          <DataChatBubble />
         </SidebarProvider>
       </TenantProvider>
     </ProfileProvider>
