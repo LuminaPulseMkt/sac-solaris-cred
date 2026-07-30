@@ -114,17 +114,36 @@ export async function analyzeConversation(params: {
   }
   const openai = new OpenAI({ apiKey });
 
-  const transcript = formatTranscript(params.messages, params.operatorName, params.leadName);
+  // Considerar apenas dias úteis + horário comercial configurado.
+  const business = await getBusinessHoursConfig();
+  const businessMessages = filterBusinessHours(params.messages, (m) => m.sent_at, business);
+  if (business.enabled && businessMessages.length < 2) {
+    throw new Error(
+      `Conversa sem mensagens suficientes dentro do horário comercial (${describeBusinessHours(business)}).`,
+    );
+  }
+
+  const responseTimes = businessMessages
+    .filter((m) => m.from_role === "operator" && typeof m.response_time_s === "number")
+    .map((m) => m.response_time_s as number);
+  const avgResponseTime = responseTimes.length
+    ? Math.round(responseTimes.reduce((s, v) => s + v, 0) / responseTimes.length)
+    : params.avgResponseTime;
+
+  const transcript = formatTranscript(businessMessages, params.operatorName, params.leadName);
   const prompt = `Você é um especialista em qualidade de atendimento ao cliente via WhatsApp.
 
 Analise a conversa entre o operador "${params.operatorName}" e o lead "${params.leadName}".
+
+IMPORTANTE: só foram incluídas mensagens de dias úteis dentro do horário comercial (${describeBusinessHours(business)}). Não penalize o operador por mensagens fora desse período, pois elas foram removidas do histórico abaixo.
 
 CONVERSA (mensagens de áudio aparecem como [ÁUDIO TRANSCRITO]: "texto"):
 ${transcript}
 
 MÉTRICAS:
-- Tempo médio de resposta do operador: ${params.avgResponseTime ?? "n/d"}s
-- Total de mensagens: ${params.totalMessages}
+- Tempo médio de resposta do operador (só horário comercial): ${avgResponseTime ?? "n/d"}s
+- Total de mensagens no horário comercial: ${businessMessages.length}
+
 
 Responda APENAS com JSON válido, sem texto adicional:
 {
