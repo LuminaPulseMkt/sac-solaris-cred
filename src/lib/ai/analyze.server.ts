@@ -1,5 +1,13 @@
 import OpenAI from "openai";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import {
+  BUSINESS_HOURS_KEYS,
+  DEFAULT_BUSINESS_HOURS,
+  describeBusinessHours,
+  filterBusinessHours,
+  parseBusinessHoursConfig,
+  type BusinessHoursConfig,
+} from "@/lib/sac/business-hours";
 
 export interface ConversationAnalysis {
   status: "resolved" | "ongoing" | "escalated";
