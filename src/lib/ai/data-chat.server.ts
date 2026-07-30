@@ -19,7 +19,7 @@ export async function buildDataSnapshot(operatorId: string | null): Promise<stri
 
   let opsQuery = supabaseAdmin
     .from("operators")
-    .select("id, name, instance_name, channel, status, avg_response_time_today_s")
+    .select("id, name, instance_name, channel, status")
     .limit(100);
   if (operatorId) opsQuery = opsQuery.eq("id", operatorId);
   const { data: operators } = await opsQuery;
@@ -63,7 +63,6 @@ export async function buildDataSnapshot(operatorId: string | null): Promise<stri
       conversas_7d: mine.length,
       score_medio: avg(myScores),
       tempo_medio_resposta_s: avg(myRts),
-      tempo_medio_hoje_s: o.avg_response_time_today_s ?? null,
       convertidas: mine.filter((c) => c.converted).length,
     };
   });
