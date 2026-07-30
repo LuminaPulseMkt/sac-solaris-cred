@@ -365,7 +365,7 @@ function DashboardPage() {
             )}
           </ChartCard>
 
-          <ChartCard title="Top operadores" subtitle="Por score médio SAC">
+          <ChartCard title="Top operadores" subtitle="Score médio — últimos 7 dias úteis">
             {topOps.length > 0 ? (
               <div className="mt-1 space-y-3">
                 {topOps.map((op, i) => (
