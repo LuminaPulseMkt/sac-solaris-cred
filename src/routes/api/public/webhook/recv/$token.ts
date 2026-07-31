@@ -243,7 +243,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           (parseInt(thresholdRow?.value ?? "8", 10) || 8) * 60 * 60 * 1000;
 
         const isConvClosed =
-          !!lastConv && (lastConv.status === "resolved" || lastConv.status === "escalated");
+          !!lastConv && lastConv.status !== "ongoing";
         const isConvIdle =
           !!lastConv &&
           lastConv.status === "ongoing" &&

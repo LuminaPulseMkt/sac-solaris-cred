@@ -25,11 +25,24 @@ export function Tag({ tone = "muted", children, className }: { tone?: Tone; chil
   );
 }
 
-export function StatusTag({ status, converted }: { status: "resolved" | "ongoing" | "escalated"; converted?: boolean }) {
+export function StatusTag({
+  status,
+  converted,
+}: {
+  status: "resolved" | "ongoing" | "escalated" | "expired";
+  converted?: boolean;
+}) {
   if (converted !== undefined) {
     if (converted) return <Tag tone="success">Converteu</Tag>;
     return <Tag tone="danger">Não converteu</Tag>;
   }
-  const tone: Tone = status === "resolved" ? "success" : status === "ongoing" ? "warning" : "danger";
+  const tone: Tone =
+    status === "resolved"
+      ? "success"
+      : status === "ongoing"
+        ? "warning"
+        : status === "expired"
+          ? "muted"
+          : "danger";
   return <Tag tone={tone}>{statusLabel[status]}</Tag>;
 }

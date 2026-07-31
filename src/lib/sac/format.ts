@@ -50,4 +50,5 @@ export const statusLabel: Record<string, string> = {
   resolved: "Resolvido",
   ongoing: "Em andamento",
   escalated: "Escalado",
+  expired: "Expirada (sem resposta)",
 };
