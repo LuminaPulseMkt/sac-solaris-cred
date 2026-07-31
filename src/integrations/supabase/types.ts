@@ -549,6 +549,7 @@ export type Database = {
     Functions: {
       cleanup_messages: { Args: never; Returns: undefined }
       cleanup_webhook_logs: { Args: never; Returns: undefined }
+      close_idle_conversations: { Args: never; Returns: number }
       create_tenant_schema: {
         Args: { schema_name: string }
         Returns: undefined
