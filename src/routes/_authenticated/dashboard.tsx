@@ -172,11 +172,17 @@ function DashboardPage() {
   const statusPie = useMemo(() => {
     const map: Record<string, number> = {};
     todayRows.forEach((c) => { map[c.status] = (map[c.status] ?? 0) + 1; });
-    const labels: Record<string, string> = { ongoing: "Em andamento", resolved: "Resolvido", escalated: "Escalado" };
+    const labels: Record<string, string> = {
+      ongoing: "Em andamento",
+      resolved: "Resolvido",
+      escalated: "Escalado",
+      expired: "Expirada",
+    };
     const colors: Record<string, string> = {
       ongoing: "var(--color-brand)",
       resolved: "var(--color-success)",
       escalated: "var(--color-warning)",
+      expired: "var(--color-muted-foreground)",
     };
     return Object.entries(map).map(([k, v]) => ({ name: labels[k] ?? k, value: v, color: colors[k] ?? "var(--color-muted)" }));
   }, [todayRows]);

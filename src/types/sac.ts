@@ -1,5 +1,5 @@
 export type Channel = "whatsapp" | "chat" | "email";
-export type ConversationStatus = "resolved" | "ongoing" | "escalated";
+export type ConversationStatus = "resolved" | "ongoing" | "escalated" | "expired";
 export type AlertSeverity = "high" | "medium" | "info";
 
 export interface Message {

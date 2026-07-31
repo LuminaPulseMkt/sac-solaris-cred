@@ -243,7 +243,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           (parseInt(thresholdRow?.value ?? "8", 10) || 8) * 60 * 60 * 1000;
 
         const isConvClosed =
-          !!lastConv && (lastConv.status === "resolved" || lastConv.status === "escalated");
+          !!lastConv && lastConv.status !== "ongoing";
         const isConvIdle =
           !!lastConv &&
           lastConv.status === "ongoing" &&
@@ -253,6 +253,19 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         let conversation: NonNullable<typeof lastConv>;
 
         if (shouldCreateNew) {
+          // Nova sessão: encerra a anterior que ficou ociosa como "expired"
+          // para não deixar conversas eternamente "ongoing".
+          if (isConvIdle && lastConv) {
+            await supabase
+              .from("conversations")
+              .update({
+                status: "expired",
+                ended_at: lastConv.updated_at,
+                updated_at: new Date().toISOString(),
+              } as never)
+              .eq("id", lastConv.id);
+          }
+
           const { data: newConv, error: convError } = await supabase
             .from("conversations")
             .insert({
