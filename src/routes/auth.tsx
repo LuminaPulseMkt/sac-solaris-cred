@@ -53,11 +53,10 @@ function AuthPage() {
   }
 
   if (checking) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
-    );
+    // Retorna null (e não um spinner) para que a primeira renderização do
+    // cliente seja idêntica ao HTML enviado pelo servidor — evita mismatch
+    // de hidratação nesta rota com ssr: false.
+    return null;
   }
 
   return (
