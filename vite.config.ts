@@ -12,4 +12,8 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Self-hosted VPS deploy target: Node instead of the Cloudflare default.
+  nitro: {
+    preset: "node-server",
+  },
 });
