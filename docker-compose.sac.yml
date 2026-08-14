@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  sac:
+    image: sac:latest
+    networks:
+      - netrenassol
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOST: "0.0.0.0"
+      SUPABASE_URL: "https://gkabtowunbwstgouytcl.supabase.co"
+      SUPABASE_PUBLISHABLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrYWJ0b3d1bmJ3c3Rnb3V5dGNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMTM1NDYsImV4cCI6MjA4OTU4OTU0Nn0.bdcEzt8J4S4vTEWehFVd7F3hwMVQwA5MjnroUUY9cGE"
+      SUPABASE_PROJECT_ID: "gkabtowunbwstgouytcl"
+      PUBLIC_APP_URL: "https://sac.renassolnuvem.tech"
+    secrets:
+      - sac_supabase_service_role_key
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.sac.rule=Host(`sac.renassolnuvem.tech`)
+        - traefik.http.routers.sac.entrypoints=websecure
+        - traefik.http.routers.sac.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.sac.service=sac
+        - traefik.http.services.sac.loadbalancer.server.port=3000
+        - traefik.http.services.sac.loadbalancer.passHostHeader=true
+
+networks:
+  netrenassol:
+    external: true
+    name: NetRenassol
+
+secrets:
+  sac_supabase_service_role_key:
+    external: true
