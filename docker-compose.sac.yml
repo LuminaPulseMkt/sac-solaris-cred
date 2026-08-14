@@ -9,12 +9,13 @@ services:
       NODE_ENV: production
       PORT: "3000"
       HOST: "0.0.0.0"
-      SUPABASE_URL: "https://gkabtowunbwstgouytcl.supabase.co"
-      SUPABASE_PUBLISHABLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrYWJ0b3d1bmJ3c3Rnb3V5dGNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMTM1NDYsImV4cCI6MjA4OTU4OTU0Nn0.bdcEzt8J4S4vTEWehFVd7F3hwMVQwA5MjnroUUY9cGE"
-      SUPABASE_PROJECT_ID: "gkabtowunbwstgouytcl"
+      SUPABASE_URL: "https://supabase-sac.renassolnuvem.tech"
+      SUPABASE_PUBLISHABLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg2NzM5NjI4LCJleHAiOjE5NDQ0MTk2Mjh9.RMjt4W7N4QVInvV7CaAF4VL_pXQ2Yq0TCn53tf9sXHA"
+      SUPABASE_PROJECT_ID: "sac-selfhosted"
       PUBLIC_APP_URL: "https://sac.renassolnuvem.tech"
     secrets:
-      - sac_supabase_service_role_key
+      - source: sac_supabase_service_role_key_v2
+        target: sac_supabase_service_role_key
     deploy:
       replicas: 1
       restart_policy:
@@ -36,5 +37,5 @@ networks:
     name: NetRenassol
 
 secrets:
-  sac_supabase_service_role_key:
+  sac_supabase_service_role_key_v2:
     external: true
