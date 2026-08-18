@@ -18,6 +18,7 @@ import {
   getSettings,
   saveSetting,
   testEvolutionConnection,
+  testResendEmail,
   getActiveInstances,
 } from "@/lib/settings/settings.functions";
 import { testWhisperTranscription, transcribePendingAudios } from "@/lib/ai/ai.functions";
@@ -391,6 +392,29 @@ function IntegracoesTab() {
     }
   };
 
+  const testResend = useServerFn(testResendEmail);
+  const [testingResend, setTestingResend] = useState(false);
+  const [testResendTo, setTestResendTo] = useState("");
+  const [testResendResult, setTestResendResult] = useState<{ ok: boolean; id?: string; error?: string } | null>(null);
+
+  const handleTestResend = async () => {
+    if (!testResendTo) return toast.error("Informe um e-mail de destino para o teste");
+    setTestingResend(true);
+    setTestResendResult(null);
+    try {
+      const r = await testResend({ data: { to: testResendTo } });
+      setTestResendResult(r);
+      if (r.ok) toast.success("E-mail de teste enviado");
+      else toast.error(r.error || "Falha ao enviar");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Falha";
+      setTestResendResult({ ok: false, error: msg });
+      toast.error(msg);
+    } finally {
+      setTestingResend(false);
+    }
+  };
+
   if (settings.isLoading || !settings.data) {
     return <div className="h-40 animate-pulse rounded-lg bg-muted" />;
   }
@@ -448,6 +472,51 @@ function IntegracoesTab() {
               ) : (
                 <div className="mt-1 break-words">{testResult.error}</div>
               )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-border bg-card p-4 space-y-4">
+        <h2 className="text-sm font-semibold">✉️ Resend (E-mail)</h2>
+        <PlainField
+          label="E-mail remetente"
+          storageKey="resend_from_email"
+          initialValue={values.resend_from_email ?? ""}
+          placeholder="alertas@seudominio.com"
+          onSaved={invalidate}
+        />
+        <SecretField
+          label="Resend API Key"
+          storageKey="resend_api_key"
+          configured={sensitive.resend_api_key?.configured ?? false}
+          lastFour={sensitive.resend_api_key?.lastFour ?? null}
+          hint="Obtenha em resend.com/api-keys"
+          onSaved={invalidate}
+        />
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <Input
+              value={testResendTo}
+              onChange={(e) => setTestResendTo(e.target.value)}
+              placeholder="seu@email.com"
+              className="h-9 flex-1"
+            />
+            <Button variant="outline" size="sm" onClick={handleTestResend} disabled={testingResend}>
+              {testingResend ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enviar teste"}
+            </Button>
+          </div>
+          {testResendResult && (
+            <div
+              className={`rounded-md border p-3 text-xs ${
+                testResendResult.ok
+                  ? "border-success/30 bg-success/10 text-success"
+                  : "border-destructive/30 bg-destructive/10 text-destructive"
+              }`}
+            >
+              {testResendResult.ok
+                ? `✅ Enviado (id: ${testResendResult.id ?? "—"})`
+                : `❌ ${testResendResult.error}`}
             </div>
           )}
         </div>

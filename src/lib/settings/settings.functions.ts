@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-const SENSITIVE_KEYS = new Set(["openai_api_key", "evolution_api_key"]);
+const SENSITIVE_KEYS = new Set(["openai_api_key", "evolution_api_key", "resend_api_key"]);
 
 export type SettingsMap = Record<string, string>;
 
@@ -101,3 +101,16 @@ export const getActiveInstances = createServerFn({ method: "GET" }).middleware([
   if (error) throw new Error(error.message);
   return data ?? [];
 });
+
+const testResendSchema = z.object({ to: z.string().email() });
+
+export const testResendEmail = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .inputValidator((input) => testResendSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { sendEmail } = await import("@/lib/email/resend.server");
+    return sendEmail({
+      to: data.to,
+      subject: "Teste de integração — SAC",
+      html: "<p>Este é um e-mail de teste da integração Resend do SAC. Se você recebeu isso, está tudo funcionando.</p>",
+    });
+  });
