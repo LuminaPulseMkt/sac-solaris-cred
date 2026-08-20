@@ -10,12 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MetricCard } from "@/components/metric-card";
-import { Download, FileText, FileBarChart, MessageSquare, Loader2, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Download, FileText, FileBarChart, MessageSquare, Loader2, Sparkles, ChevronDown, ChevronUp, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { listConversations, listOperatorStats } from "@/lib/operators.functions";
 import { listAnalyses, getOperatorAiReport, analyzeAllPending } from "@/lib/ai/ai.functions";
 import { getSettings } from "@/lib/settings/settings.functions";
 import { sendReportViaWhatsapp } from "@/lib/reports/whatsapp.functions";
+import { sendReportViaEmail } from "@/lib/reports/email.functions";
 import { generateReportPdf, type ReportAnalysisSummary } from "@/lib/reports/generate-pdf";
 import { formatDuration } from "@/lib/sac/format";
 
@@ -80,6 +81,8 @@ function RelatoriosPage() {
   const [operator, setOperator] = useState("all");
   const [includeAi, setIncludeAi] = useState(true);
   const [sending, setSending] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailSections, setEmailSections] = useState({ general: true, perOperator: true, instanceStatus: true });
   const [analyzing, setAnalyzing] = useState(false);
 
   const convsFn = useServerFn(listConversations);
@@ -87,6 +90,7 @@ function RelatoriosPage() {
   const analysesFn = useServerFn(listAnalyses);
   const settingsFn = useServerFn(getSettings);
   const sendFn = useServerFn(sendReportViaWhatsapp);
+  const sendEmailFn = useServerFn(sendReportViaEmail);
   const reportFn = useServerFn(getOperatorAiReport);
   const analyzeFn = useServerFn(analyzeAllPending);
 
@@ -223,6 +227,29 @@ function RelatoriosPage() {
     }
   };
 
+  const sendEmailReport = async () => {
+    if (!emailSections.general && !emailSections.perOperator && !emailSections.instanceStatus) {
+      return toast.error("Selecione ao menos uma seção para enviar");
+    }
+    setSendingEmail(true);
+    try {
+      const periodLabel = { "24h": "Últimas 24h", "7d": "Últimos 7 dias", "30d": "Últimos 30 dias" }[period] ?? period;
+      const res = await sendEmailFn({
+        data: {
+          period: periodLabel,
+          sections: emailSections,
+          metrics: { total, avgScore, avgResponseTime: avgResp, conversionRate: convRate },
+          ranking,
+        },
+      });
+      toast.success(`E-mail enviado para ${res.sent} destinatário(s)`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao enviar e-mail");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   return (
     <>
       <AppHeader
@@ -277,6 +304,44 @@ function RelatoriosPage() {
             <Switch checked={includeAi} onCheckedChange={setIncludeAi} id="incAi" />
             <Label htmlFor="incAi" className="text-xs">Incluir IA no PDF</Label>
           </div>
+        </section>
+
+        <section className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-card p-3">
+          <span className="text-xs font-medium text-muted-foreground">📧 Enviar por e-mail:</span>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={emailSections.general}
+              onCheckedChange={(v) => setEmailSections((s) => ({ ...s, general: v }))}
+              id="secGeneral"
+            />
+            <Label htmlFor="secGeneral" className="text-xs">Resumo geral</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={emailSections.perOperator}
+              onCheckedChange={(v) => setEmailSections((s) => ({ ...s, perOperator: v }))}
+              id="secOperator"
+            />
+            <Label htmlFor="secOperator" className="text-xs">Por operador</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={emailSections.instanceStatus}
+              onCheckedChange={(v) => setEmailSections((s) => ({ ...s, instanceStatus: v }))}
+              id="secInstances"
+            />
+            <Label htmlFor="secInstances" className="text-xs">Status das instâncias</Label>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-auto"
+            onClick={sendEmailReport}
+            disabled={sendingEmail}
+          >
+            {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+            Enviar por e-mail
+          </Button>
         </section>
 
         <Tabs defaultValue="geral">
