@@ -358,6 +358,80 @@ function PlainField({
   );
 }
 
+function AlertEmailsField({ initialValue, onSaved }: { initialValue: string; onSaved: () => void }) {
+  const [emails, setEmails] = useState<string[]>([]);
+  const [newEmail, setNewEmail] = useState("");
+  const [saving, setSaving] = useState(false);
+  const save = useServerFn(saveSetting);
+
+  useEffect(() => {
+    try {
+      const parsed = JSON.parse(initialValue);
+      setEmails(Array.isArray(parsed) ? parsed.filter((e): e is string => typeof e === "string") : []);
+    } catch {
+      setEmails([]);
+    }
+  }, [initialValue]);
+
+  const persist = async (next: string[]) => {
+    setSaving(true);
+    try {
+      await save({ data: { key: "alert_notification_emails", value: JSON.stringify(next) } });
+      setEmails(next);
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao salvar destinatários");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAdd = () => {
+    const email = newEmail.trim().toLowerCase();
+    if (!email) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast.error("E-mail inválido");
+    if (emails.includes(email)) return toast.error("Esse e-mail já está na lista");
+    persist([...emails, email]);
+    setNewEmail("");
+  };
+
+  const handleRemove = (email: string) => {
+    persist(emails.filter((e) => e !== email));
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <Input
+          type="email"
+          value={newEmail}
+          onChange={(e) => setNewEmail(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } }}
+          placeholder="nome@empresa.com.br"
+          className="h-9 flex-1"
+        />
+        <Button type="button" size="sm" onClick={handleAdd} disabled={saving}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Adicionar"}
+        </Button>
+      </div>
+      {emails.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Nenhum destinatário configurado.</p>
+      ) : (
+        <ul className="space-y-1">
+          {emails.map((email) => (
+            <li key={email} className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-1.5 text-sm">
+              <span className="truncate">{email}</span>
+              <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleRemove(email)} disabled={saving}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function IntegracoesTab() {
   const qc = useQueryClient();
   const fetchSettings = useServerFn(getSettings);
@@ -520,6 +594,17 @@ function IntegracoesTab() {
             </div>
           )}
         </div>
+      </section>
+
+      <section className="rounded-lg border border-border bg-card p-4 space-y-3">
+        <h2 className="text-sm font-semibold">📨 Destinatários de alertas</h2>
+        <p className="text-xs text-muted-foreground">
+          Recebem e-mail quando uma instância do WhatsApp desconecta e (futuramente) alertas do painel.
+        </p>
+        <AlertEmailsField
+          initialValue={values.alert_notification_emails ?? "[]"}
+          onSaved={invalidate}
+        />
       </section>
 
       <WhisperTestSection />

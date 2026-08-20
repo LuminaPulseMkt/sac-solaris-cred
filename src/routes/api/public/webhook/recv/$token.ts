@@ -9,6 +9,8 @@ type EvolutionPayload = {
     message?: Record<string, unknown>;
     messageTimestamp?: number;
     messageType?: string;
+    state?: string;
+    statusReason?: number;
   };
 };
 
@@ -110,6 +112,44 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
             origin_ip: originIp,
           });
           return Response.json({ error: "Operator inactive" }, { status: 403 });
+        }
+
+        // Evolution WhatsApp instance disconnected — alert configured recipients.
+        if (payload.event === "connection.update") {
+          const state = payload.data?.state;
+          if (state === "close") {
+            const { data: setting } = await supabase
+              .from("app_settings")
+              .select("value")
+              .eq("key", "alert_notification_emails")
+              .maybeSingle();
+            let recipients: string[] = [];
+            try {
+              recipients = JSON.parse(setting?.value ?? "[]");
+            } catch {
+              recipients = [];
+            }
+            if (Array.isArray(recipients) && recipients.length > 0) {
+              const { sendEmail } = await import("@/lib/email/resend.server");
+              await sendEmail({
+                to: recipients,
+                subject: `⚠️ WhatsApp desconectado — ${operator.name}`,
+                html: `
+                  <p>A instância <strong>${operator.instance_name}</strong> (operador <strong>${operator.name}</strong>) desconectou do WhatsApp.</p>
+                  <p>Acesse a Evolution API ou o painel SAC para reconectar o QR code.</p>
+                `,
+              }).catch(() => {});
+            }
+          }
+          await supabase.from("webhook_logs").insert({
+            operator_id: operator.id,
+            http_status: 200,
+            payload_raw: payload as never,
+            processed: false,
+            error_message: `connection.update: ${state ?? "desconhecido"}`,
+            origin_ip: originIp,
+          });
+          return Response.json({ received: true, event: "connection.update", state: state ?? null });
         }
 
         // Silently ignore non-message events

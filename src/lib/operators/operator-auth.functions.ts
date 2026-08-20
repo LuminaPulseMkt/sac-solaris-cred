@@ -129,11 +129,33 @@ export const createOperatorUser = createServerFn({ method: "POST" })
       throw new Error(`Erro ao vincular operador: ${opError.message}`);
     }
 
+    let emailSent = false;
+    let emailError: string | null = null;
+    if (data.email) {
+      const { sendEmail } = await import("@/lib/email/resend.server");
+      const result = await sendEmail({
+        to: generatedEmail,
+        subject: `Seu acesso ao SAC — ${operatorName}`,
+        html: `
+          <p>Olá, ${operatorName}!</p>
+          <p>Seu acesso ao painel SAC (Solaris Analytics Chat) foi criado. Use os dados abaixo para entrar:</p>
+          <p><strong>Link:</strong> <a href="https://sac.renassolnuvem.tech">https://sac.renassolnuvem.tech</a></p>
+          <p><strong>E-mail:</strong> ${generatedEmail}</p>
+          <p><strong>Senha:</strong> ${generatedPassword}</p>
+          <p>Recomendamos alterar a senha após o primeiro acesso.</p>
+        `,
+      });
+      emailSent = result.ok;
+      emailError = result.ok ? null : (result.error ?? "Falha desconhecida ao enviar e-mail");
+    }
+
     return {
       userId,
       email: generatedEmail,
       password: generatedPassword,
       generated: !data.email,
+      emailSent,
+      emailError,
     };
   });
 

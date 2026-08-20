@@ -794,7 +794,7 @@ function CreateAccessDialog({ operator, onClose, onSaved }: { operator: Operator
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
-  const [result, setResult] = useState<{ email: string; password: string; generated: boolean } | null>(null);
+  const [result, setResult] = useState<{ email: string; password: string; generated: boolean; emailSent?: boolean; emailError?: string | null } | null>(null);
 
   useEffect(() => {
     if (operator) {
@@ -844,6 +844,18 @@ function CreateAccessDialog({ operator, onClose, onSaved }: { operator: Operator
               <CheckCircle className="h-4 w-4 flex-shrink-0" />
               Acesso criado com sucesso!
             </div>
+            {result.emailSent && (
+              <div className="flex items-center gap-2 rounded-md bg-success/10 p-3 text-xs text-success">
+                <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                E-mail de boas-vindas enviado para {result.email}
+              </div>
+            )}
+            {result.emailSent === false && (
+              <div className="flex items-center gap-2 rounded-md bg-warning/10 p-3 text-xs text-warning">
+                <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                Não foi possível enviar o e-mail automático ({result.emailError ?? "erro desconhecido"}). Repasse as credenciais manualmente.
+              </div>
+            )}
             <p className="text-sm text-muted-foreground">Repasse estas credenciais ao operador:</p>
             <div className="space-y-1">
               <Label className="text-xs">Login (e-mail)</Label>
