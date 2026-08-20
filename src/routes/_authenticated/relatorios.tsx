@@ -82,7 +82,7 @@ function RelatoriosPage() {
   const [includeAi, setIncludeAi] = useState(true);
   const [sending, setSending] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
-  const [emailSections, setEmailSections] = useState({ general: true, perOperator: true, instanceStatus: true });
+  const [emailSections, setEmailSections] = useState({ general: true, perOperator: true, instanceStatus: true, aiAnalysis: true });
   const [analyzing, setAnalyzing] = useState(false);
 
   const convsFn = useServerFn(listConversations);
@@ -228,7 +228,7 @@ function RelatoriosPage() {
   };
 
   const sendEmailReport = async () => {
-    if (!emailSections.general && !emailSections.perOperator && !emailSections.instanceStatus) {
+    if (!emailSections.general && !emailSections.perOperator && !emailSections.instanceStatus && !emailSections.aiAnalysis) {
       return toast.error("Selecione ao menos uma seção para enviar");
     }
     setSendingEmail(true);
@@ -240,6 +240,7 @@ function RelatoriosPage() {
           sections: emailSections,
           metrics: { total, avgScore, avgResponseTime: avgResp, conversionRate: convRate },
           ranking,
+          aiSummary,
         },
       });
       toast.success(`E-mail enviado para ${res.sent} destinatário(s)`);
@@ -331,6 +332,14 @@ function RelatoriosPage() {
               id="secInstances"
             />
             <Label htmlFor="secInstances" className="text-xs">Status das instâncias</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={emailSections.aiAnalysis}
+              onCheckedChange={(v) => setEmailSections((s) => ({ ...s, aiAnalysis: v }))}
+              id="secAi"
+            />
+            <Label htmlFor="secAi" className="text-xs">✨ Análise IA</Label>
           </div>
           <Button
             size="sm"

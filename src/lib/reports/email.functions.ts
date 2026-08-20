@@ -8,7 +8,21 @@ const schema = z.object({
     general: z.boolean(),
     perOperator: z.boolean(),
     instanceStatus: z.boolean(),
+    aiAnalysis: z.boolean(),
   }),
+  aiSummary: z
+    .object({
+      averageScore: z.number(),
+      sentimentCounts: z.object({
+        positive: z.number(),
+        neutral: z.number(),
+        negative: z.number(),
+      }),
+      topTopics: z.array(z.object({ topic: z.string(), count: z.number() })),
+      topImprovements: z.array(z.object({ text: z.string(), count: z.number() })),
+    })
+    .nullable()
+    .optional(),
   metrics: z
     .object({
       total: z.number(),
@@ -114,6 +128,27 @@ export const sendReportViaEmail = createServerFn({ method: "POST" }).middleware(
           <tr><th>Instância</th><th>Status</th></tr>
           ${statusRows || '<tr><td colspan="2">Não foi possível obter o status</td></tr>'}
         </table>
+      `);
+    }
+
+    if (data.sections.aiAnalysis && data.aiSummary) {
+      const s = data.aiSummary;
+      const topicsHtml = s.topTopics.length
+        ? `<ul>${s.topTopics.map((t) => `<li>${t.topic} (${t.count}x)</li>`).join("")}</ul>`
+        : "<p>Sem tópicos recorrentes no período.</p>";
+      const improvementsHtml = s.topImprovements.length
+        ? `<ul>${s.topImprovements.map((t) => `<li>${t.text} (${t.count}x)</li>`).join("")}</ul>`
+        : "<p>Sem sugestões de melhoria no período.</p>";
+      parts.push(`
+        <h3>✨ Análise de IA</h3>
+        <ul>
+          <li>Score médio de qualidade (IA): ${s.averageScore}/100</li>
+          <li>Sentimento: 😀 ${s.sentimentCounts.positive} positivas · 😐 ${s.sentimentCounts.neutral} neutras · 😟 ${s.sentimentCounts.negative} negativas</li>
+        </ul>
+        <p><strong>Tópicos mais frequentes:</strong></p>
+        ${topicsHtml}
+        <p><strong>Sugestões de melhoria mais comuns:</strong></p>
+        ${improvementsHtml}
       `);
     }
 
