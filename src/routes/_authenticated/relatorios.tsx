@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { listConversations, listOperatorStats } from "@/lib/operators.functions";
 import { listAnalyses, getOperatorAiReport, analyzeAllPending } from "@/lib/ai/ai.functions";
 import { getSettings } from "@/lib/settings/settings.functions";
+import { listSetores } from "@/lib/setores/setores.functions";
 import { sendReportViaWhatsapp } from "@/lib/reports/whatsapp.functions";
 import { sendReportViaEmail } from "@/lib/reports/email.functions";
 import { generateReportPdf, type ReportAnalysisSummary } from "@/lib/reports/generate-pdf";
@@ -78,6 +79,7 @@ function summarizeAnalyses(rows: Array<{
 function RelatoriosPage() {
   const qc = useQueryClient();
   const [period, setPeriod] = useState("7d");
+  const [setor, setSetor] = useState("all");
   const [operator, setOperator] = useState("all");
   const [includeAi, setIncludeAi] = useState(true);
   const [sending, setSending] = useState(false);
@@ -89,6 +91,7 @@ function RelatoriosPage() {
   const statsFn = useServerFn(listOperatorStats);
   const analysesFn = useServerFn(listAnalyses);
   const settingsFn = useServerFn(getSettings);
+  const setoresFn = useServerFn(listSetores);
   const sendFn = useServerFn(sendReportViaWhatsapp);
   const sendEmailFn = useServerFn(sendReportViaEmail);
   const reportFn = useServerFn(getOperatorAiReport);
@@ -98,6 +101,7 @@ function RelatoriosPage() {
   const { data: stats = [] } = useQuery({ queryKey: ["operator-stats"], queryFn: () => statsFn(), refetchInterval: 30_000 });
   const { data: analyses = [] } = useQuery({ queryKey: ["analyses"], queryFn: () => analysesFn({ data: {} }), refetchInterval: 60_000 });
   const { data: settings } = useQuery({ queryKey: ["settings"], queryFn: () => settingsFn() });
+  const { data: setoresList = [] } = useQuery({ queryKey: ["setores"], queryFn: () => setoresFn() });
   const { data: aiReport } = useQuery({
     queryKey: ["ai-report", period, operator],
     queryFn: () =>
@@ -137,10 +141,15 @@ function RelatoriosPage() {
     return d;
   }, [period]);
 
+  const operatorIdsInSetor = new Set(
+    setor === "all" ? stats.map((s) => s.id) : stats.filter((s) => (s as unknown as { setor_id?: string | null }).setor_id === setor).map((s) => s.id),
+  );
+
   const filtered = convs.filter((c) => {
     const matchesPeriod = new Date(c.started_at) >= cutoff;
     const matchesOp = operator === "all" || c.operator_id === operator;
-    return matchesPeriod && matchesOp;
+    const matchesSetor = setor === "all" || operatorIdsInSetor.has(c.operator_id ?? "");
+    return matchesPeriod && matchesOp && matchesSetor;
   });
   const total = filtered.length;
   const avgScore = total ? Math.round(filtered.reduce((a, c) => a + (c.score_sac ?? 0), 0) / total) : 0;
@@ -154,6 +163,7 @@ function RelatoriosPage() {
   const aiSummary = summarizeAnalyses(periodAnalyses);
 
   const ranking = stats
+    .filter((s) => setor === "all" || (s as unknown as { setor_id?: string | null }).setor_id === setor)
     .map((s) => ({ Operador: s.name, Conversas: s.total, Score: s.avgScore }))
     .sort((a, b) => b.Score - a.Score);
 
@@ -279,7 +289,7 @@ function RelatoriosPage() {
       />
 
       <main className="flex-1 space-y-4 p-4 md:p-6">
-        <section className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[180px_1fr_auto]">
+        <section className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[160px_160px_1fr_auto]">
           <div>
             <Label className="text-[11px] uppercase text-muted-foreground">Período</Label>
             <Select value={period} onValueChange={setPeriod}>
@@ -292,12 +302,24 @@ function RelatoriosPage() {
             </Select>
           </div>
           <div>
+            <Label className="text-[11px] uppercase text-muted-foreground">Setor</Label>
+            <Select value={setor} onValueChange={(v) => { setSetor(v); setOperator("all"); }}>
+              <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {setoresList.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
             <Label className="text-[11px] uppercase text-muted-foreground">Operador</Label>
             <Select value={operator} onValueChange={setOperator}>
               <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                {stats.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                {stats
+                  .filter((s) => setor === "all" || (s as unknown as { setor_id?: string | null }).setor_id === setor)
+                  .map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

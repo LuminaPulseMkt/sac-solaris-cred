@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Webhook, MessagesSquare, TrendingUp, Clock, Star, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   AreaChart, Area,
   BarChart, Bar,
@@ -12,10 +12,12 @@ import {
 } from "recharts";
 import { AppHeader } from "@/components/app-header";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MetricCard } from "@/components/metric-card";
 import { InstanceStatusCard } from "@/components/instance-status-card";
 import { useProfile } from "@/contexts/profile-context";
 import { listConversations, listOperatorStats } from "@/lib/operators.functions";
+import { listSetores } from "@/lib/setores/setores.functions";
 import { formatDuration } from "@/lib/sac/format";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -79,10 +81,20 @@ function DashboardPage() {
   const profile = useProfile();
   const listFn = useServerFn(listConversations);
   const statsFn = useServerFn(listOperatorStats);
+  const setoresFn = useServerFn(listSetores);
 
   const { data: rowsRaw = [] } = useQuery({ queryKey: ["conversations"], queryFn: () => listFn(), refetchInterval: 30_000 });
   const { data: opStats = [] } = useQuery({ queryKey: ["operator-stats"], queryFn: () => statsFn(), refetchInterval: 30_000 });
-  const rows = rowsRaw;
+  const { data: setoresList = [] } = useQuery({ queryKey: ["setores"], queryFn: () => setoresFn() });
+  const [setor, setSetor] = useState("all");
+
+  const rows = useMemo(() => {
+    if (setor === "all") return rowsRaw;
+    const idsInSetor = new Set(
+      opStats.filter((s) => (s as unknown as { setor_id?: string | null }).setor_id === setor).map((s) => s.id),
+    );
+    return rowsRaw.filter((c) => idsInSetor.has((c as { operator_id?: string | null }).operator_id ?? ""));
+  }, [rowsRaw, opStats, setor]);
 
 
   // ── Particionamento único: hoje + buckets de 7 dias (single pass) ───────
@@ -252,7 +264,20 @@ function DashboardPage() {
       <AppHeader
         title="Visão geral"
         subtitle="Resumo de atendimento e scoring"
-        actions={<Button variant="outline" size="sm" asChild><Link to="/integracao"><Webhook className="h-4 w-4" /> Integração</Link></Button>}
+        actions={
+          <>
+            {setoresList.length > 0 && (
+              <Select value={setor} onValueChange={setSetor}>
+                <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os setores</SelectItem>
+                  {setoresList.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            <Button variant="outline" size="sm" asChild><Link to="/integracao"><Webhook className="h-4 w-4" /> Integração</Link></Button>
+          </>
+        }
       />
 
       <main className="flex-1 space-y-6 p-4 md:p-6">

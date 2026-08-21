@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AppHeader } from "@/components/app-header";
@@ -7,10 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BellRing, Clock, TrendingDown, Users, CheckCircle2, WifiOff, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useSettingsStore } from "@/stores/settings";
 import { listConversations, listWebhookHealth, regenerateToken } from "@/lib/operators.functions";
+import { listSetores } from "@/lib/setores/setores.functions";
 import { listAnalyses } from "@/lib/ai/ai.functions";
 import { formatDuration, formatDateTime } from "@/lib/sac/format";
 
@@ -92,22 +94,36 @@ function AlertasPage() {
   const analysesFn = useServerFn(listAnalyses);
   const healthFn = useServerFn(listWebhookHealth);
   const regenFn = useServerFn(regenerateToken);
+  const setoresFn = useServerFn(listSetores);
+  const [setor, setSetor] = useState("all");
 
-  const { data: convs = [] } = useQuery({
+  const { data: convsRaw = [] } = useQuery({
     queryKey: ["conversations"],
     queryFn: () => convsFn(),
     refetchInterval: 30_000,
   });
+  const { data: setoresList = [] } = useQuery({ queryKey: ["setores"], queryFn: () => setoresFn() });
+  const convs = useMemo(() => {
+    if (setor === "all") return convsRaw;
+    return convsRaw.filter((c) => {
+      const opRow = c.operators as { setor_id?: string | null } | null;
+      return (opRow?.setor_id ?? null) === setor;
+    });
+  }, [convsRaw, setor]);
   const { data: analyses = [] } = useQuery({
     queryKey: ["analyses"],
     queryFn: () => analysesFn({ data: {} }),
     refetchInterval: 60_000,
   });
-  const { data: health = [] } = useQuery({
+  const { data: healthRaw = [] } = useQuery({
     queryKey: ["webhook-health"],
     queryFn: () => healthFn(),
     refetchInterval: 60_000,
   });
+  const health = useMemo(() => {
+    if (setor === "all") return healthRaw;
+    return healthRaw.filter((o) => (o as unknown as { setor_id?: string | null }).setor_id === setor);
+  }, [healthRaw, setor]);
 
   const silentOperators = useMemo(
     () => health.filter((o) => o.status !== "inactive" && o.total24h === 0),
@@ -227,6 +243,17 @@ function AlertasPage() {
       <AppHeader
         title="Central de alertas"
         subtitle={alerts.length > 0 ? `${alerts.length} alerta${alerts.length > 1 ? "s" : ""} ativo${alerts.length > 1 ? "s" : ""}` : "Sem alertas ativos"}
+        actions={
+          setoresList.length > 0 ? (
+            <Select value={setor} onValueChange={setSetor}>
+              <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os setores</SelectItem>
+                {setoresList.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          ) : undefined
+        }
       />
       <main className="grid flex-1 gap-6 p-4 md:p-6 lg:grid-cols-[1.4fr_1fr]">
 

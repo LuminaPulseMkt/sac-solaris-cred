@@ -356,6 +356,7 @@ export type Database = {
           last_received_at: string | null
           messages_today: number
           name: string
+          setor_id: string | null
           status: string
           token: string
           updated_at: string
@@ -372,6 +373,7 @@ export type Database = {
           last_received_at?: string | null
           messages_today?: number
           name: string
+          setor_id?: string | null
           status?: string
           token?: string
           updated_at?: string
@@ -388,11 +390,41 @@ export type Database = {
           last_received_at?: string | null
           messages_today?: number
           name?: string
+          setor_id?: string | null
           status?: string
           token?: string
           updated_at?: string
           user_id?: string | null
           webhook_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operators_setor_id_fkey"
+            columns: ["setor_id"]
+            isOneToOne: false
+            referencedRelation: "setores"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      setores: {
+        Row: {
+          id: string
+          name: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }

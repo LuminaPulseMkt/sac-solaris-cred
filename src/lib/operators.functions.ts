@@ -152,7 +152,7 @@ export const listWebhookLogs = createServerFn({ method: "GET" }).middleware([req
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     let query = supabaseAdmin
       .from("webhook_logs")
-      .select("*, operators(name, instance_name)")
+      .select("*, operators(name, instance_name, setor_id)")
       .order("received_at", { ascending: false })
       .limit(100);
     if (data.operator_id) query = query.eq("operator_id", data.operator_id);
@@ -238,7 +238,7 @@ export const listConversations = createServerFn({ method: "GET" }).middleware([r
   const myOpId = await resolveMyOperatorId((context as { userId?: string }).userId);
   let query = supabaseAdmin
     .from("conversations")
-    .select("*, operators(name, instance_name)")
+    .select("*, operators(name, instance_name, setor_id)")
     .order("updated_at", { ascending: false })
     .limit(1000);
   if (myOpId) query = query.eq("operator_id", myOpId);
@@ -312,7 +312,7 @@ export const listWebhookHealth = createServerFn({ method: "GET" }).middleware([r
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: ops, error } = await supabaseAdmin
     .from("operators")
-    .select("id, name, instance_name, channel, status, token, webhook_url, last_received_at")
+    .select("id, name, instance_name, channel, status, token, webhook_url, last_received_at, setor_id")
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);
   const { data: logs } = await supabaseAdmin

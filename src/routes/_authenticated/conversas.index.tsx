@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { OperatorAvatar } from "@/components/operator-avatar";
 import { ScoreBar } from "@/components/score-bar";
 import { MessagesSquare, Trash2 } from "lucide-react";
@@ -23,6 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { listConversations, deleteConversation, deleteConversations } from "@/lib/operators.functions";
+import { listSetores } from "@/lib/setores/setores.functions";
 import { formatDuration, formatDateTime } from "@/lib/sac/format";
 
 export const Route = createFileRoute("/_authenticated/conversas/")({
@@ -44,12 +46,14 @@ function ConversasPage() {
   const listFn = useServerFn(listConversations);
   const deleteOneFn = useServerFn(deleteConversation);
   const deleteManyFn = useServerFn(deleteConversations);
+  const setoresFn = useServerFn(listSetores);
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["conversations"],
     queryFn: () => listFn(),
     refetchInterval: 15_000,
   });
+  const { data: setoresList = [] } = useQuery({ queryKey: ["setores"], queryFn: () => setoresFn() });
 
   useEffect(() => {
     const channel = supabase
@@ -67,6 +71,7 @@ function ConversasPage() {
     };
   }, [qc]);
   const [search, setSearch] = useState("");
+  const [setor, setSetor] = useState("all");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [toDeleteOne, setToDeleteOne] = useState<Conv | null>(null);
@@ -74,14 +79,16 @@ function ConversasPage() {
 
   const filtered = useMemo(() => {
     return rows.filter((c) => {
+      const opRow = c.operators as { name?: string; setor_id?: string | null } | null;
+      if (setor !== "all" && (opRow?.setor_id ?? null) !== setor) return false;
       if (!search) return true;
       const q = search.toLowerCase();
-      const op = (c.operators as { name?: string } | null)?.name?.toLowerCase() ?? "";
+      const op = opRow?.name?.toLowerCase() ?? "";
       return (c.lead_name ?? "").toLowerCase().includes(q) ||
         c.lead_phone.toLowerCase().includes(q) ||
         op.includes(q);
     });
-  }, [rows, search]);
+  }, [rows, search, setor]);
 
   const recurringPhones = useMemo(() => {
     const count: Record<string, number> = {};
@@ -152,6 +159,15 @@ function ConversasPage() {
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             className="h-9 w-72"
           />
+          {setoresList.length > 0 && (
+            <Select value={setor} onValueChange={(v) => { setSetor(v); setPage(1); }}>
+              <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os setores</SelectItem>
+                {setoresList.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
         </section>
 
         {selected.size > 0 && (

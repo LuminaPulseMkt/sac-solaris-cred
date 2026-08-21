@@ -39,6 +39,7 @@ import {
   revokeOperatorAccess,
 } from "@/lib/operators/operator-auth.functions";
 import { copyToClipboard } from "@/lib/clipboard";
+import { listSetores, createSetor, updateSetor, deleteSetor, assignOperatorSetor } from "@/lib/setores/setores.functions";
 
 type TestResult = {
   ok: boolean;
@@ -119,8 +120,10 @@ function IntegracaoPage() {
   const logsFn = useServerFn(listWebhookLogs);
   const fixFn = useServerFn(fixWebhookUrls);
 
+  const listSetoresFn = useServerFn(listSetores);
   const operators = useQuery({ queryKey: ["operators"], queryFn: () => listFn() });
   const logs = useQuery({ queryKey: ["webhook-logs"], queryFn: () => logsFn({ data: {} }) });
+  const setores = useQuery({ queryKey: ["setores"], queryFn: () => listSetoresFn() });
 
   useEffect(() => {
     fixFn()
@@ -138,6 +141,7 @@ function IntegracaoPage() {
   function refresh() {
     qc.invalidateQueries({ queryKey: ["operators"] });
     qc.invalidateQueries({ queryKey: ["webhook-logs"] });
+    qc.invalidateQueries({ queryKey: ["setores"] });
   }
 
   return (
@@ -151,6 +155,7 @@ function IntegracaoPage() {
           <TabsList>
             <TabsTrigger value="list">Operadores</TabsTrigger>
             <TabsTrigger value="new">Cadastrar operador</TabsTrigger>
+            <TabsTrigger value="setores">Setores</TabsTrigger>
             <TabsTrigger value="instances">Instâncias</TabsTrigger>
             <TabsTrigger value="logs">Logs de recebimento</TabsTrigger>
           </TabsList>
@@ -158,9 +163,14 @@ function IntegracaoPage() {
           <TabsContent value="list" className="space-y-3">
             <OperatorsList
               operators={operators.data ?? []}
+              setores={setores.data ?? []}
               loading={operators.isLoading}
               onChange={refresh}
             />
+          </TabsContent>
+
+          <TabsContent value="setores">
+            <SetoresTab setores={setores.data ?? []} loading={setores.isLoading} onChange={refresh} />
           </TabsContent>
 
           <TabsContent value="new">
@@ -195,18 +205,32 @@ function IntegracaoPage() {
   );
 }
 
+type SetorRow = { id: string; name: string; operatorCount: number };
+
 function OperatorsList({
   operators,
+  setores,
   loading,
   onChange,
 }: {
   operators: Operator[];
+  setores: SetorRow[];
   loading: boolean;
   onChange: () => void;
 }) {
   const updateFn = useServerFn(updateOperator);
   const regenFn = useServerFn(regenerateToken);
   const deleteFn = useServerFn(deleteOperator);
+  const assignSetorFn = useServerFn(assignOperatorSetor);
+
+  async function handleSetorChange(operatorId: string, setorId: string) {
+    try {
+      await assignSetorFn({ data: { operator_id: operatorId, setor_id: setorId === "none" ? null : setorId } });
+      onChange();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao definir setor");
+    }
+  }
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [toDelete, setToDelete] = useState<Operator | null>(null);
   const [toEdit, setToEdit] = useState<Operator | null>(null);
@@ -245,6 +269,7 @@ function OperatorsList({
             <TableRow>
               <TableHead>Operador</TableHead>
               <TableHead>Instância</TableHead>
+              <TableHead>Setor</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Última msg</TableHead>
               <TableHead>Hoje</TableHead>
@@ -262,6 +287,20 @@ function OperatorsList({
                     {op.description && <div className="text-xs text-muted-foreground">{op.description}</div>}
                   </TableCell>
                   <TableCell className="font-mono text-xs">{op.instance_name}</TableCell>
+                  <TableCell>
+                    <Select
+                      value={(op as unknown as { setor_id?: string | null }).setor_id ?? "none"}
+                      onValueChange={(v) => handleSetorChange(op.id, v)}
+                    >
+                      <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sem setor</SelectItem>
+                        {setores.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
@@ -400,6 +439,155 @@ function OperatorsList({
         }}
       />
     </>
+  );
+}
+
+function SetoresTab({
+  setores,
+  loading,
+  onChange,
+}: {
+  setores: SetorRow[];
+  loading: boolean;
+  onChange: () => void;
+}) {
+  const createFn = useServerFn(createSetor);
+  const updateFn = useServerFn(updateSetor);
+  const deleteFn = useServerFn(deleteSetor);
+  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<SetorRow | null>(null);
+  const [editName, setEditName] = useState("");
+  const [toDelete, setToDelete] = useState<SetorRow | null>(null);
+
+  async function handleCreate() {
+    const name = newName.trim();
+    if (!name) return toast.error("Informe um nome");
+    setCreating(true);
+    try {
+      await createFn({ data: { name } });
+      toast.success("Setor criado");
+      setNewName("");
+      onChange();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao criar setor");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleUpdate() {
+    if (!editing) return;
+    const name = editName.trim();
+    if (!name) return toast.error("Informe um nome");
+    try {
+      await updateFn({ data: { id: editing.id, name } });
+      toast.success("Setor atualizado");
+      setEditing(null);
+      onChange();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar setor");
+    }
+  }
+
+  async function handleDelete() {
+    if (!toDelete) return;
+    try {
+      await deleteFn({ data: { id: toDelete.id } });
+      toast.success("Setor excluído");
+      onChange();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao excluir setor");
+    } finally {
+      setToDelete(null);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 rounded-lg border border-border bg-card p-4">
+        <Input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleCreate(); } }}
+          placeholder="Nome do setor (ex: Comercial, Pós-vendas)"
+          className="h-9 flex-1"
+        />
+        <Button size="sm" onClick={handleCreate} disabled={creating}>Novo setor</Button>
+      </div>
+
+      {loading ? (
+        <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">Carregando…</div>
+      ) : setores.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center">
+          <p className="text-sm font-medium">Nenhum setor cadastrado.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Crie setores como Comercial, Pós-vendas, Documentação, Solaris Pay…</p>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Setor</TableHead>
+                <TableHead>Operadores</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {setores.map((s) => (
+                <TableRow key={s.id}>
+                  <TableCell className="font-medium">{s.name}</TableCell>
+                  <TableCell className="text-xs tabular-nums">{s.operatorCount}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="ghost" title="Editar" onClick={() => { setEditing(s); setEditName(s.name); }}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        title="Excluir"
+                        className="text-danger hover:bg-danger/10 hover:text-danger"
+                        onClick={() => setToDelete(s)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Editar setor</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+            <Button className="w-full" onClick={handleUpdate}>Salvar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir o setor {toDelete?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Os {toDelete?.operatorCount ?? 0} operador(es) vinculado(s) ficarão sem setor. Essa ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-danger text-white hover:bg-danger/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }
 
