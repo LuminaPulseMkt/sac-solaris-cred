@@ -9,52 +9,43 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
-import { Route as AuthenticatedOperadoresRouteImport } from './routes/_authenticated/operadores'
-import { Route as AuthenticatedIntegracaoRouteImport } from './routes/_authenticated/integracao'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
-import { Route as AuthenticatedAlertasRouteImport } from './routes/_authenticated/alertas'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedAlertasRouteImport } from './routes/_authenticated/alertas'
+import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedIntegracaoRouteImport } from './routes/_authenticated/integracao'
+import { Route as AuthenticatedOperadoresRouteImport } from './routes/_authenticated/operadores'
+import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
 import { Route as AuthenticatedConversasIndexRouteImport } from './routes/_authenticated/conversas.index'
 import { Route as AuthenticatedConversasIdRouteImport } from './routes/_authenticated/conversas.$id'
+import { Route as ApiInternalSweepAnalysisRouteImport } from './routes/api/internal/sweep-analysis'
 import { Route as ApiPublicWebhookRecvTokenRouteImport } from './routes/api/public/webhook/recv/$token'
 
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
-  id: '/relatorios',
-  path: '/relatorios',
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedOperadoresRoute = AuthenticatedOperadoresRouteImport.update({
-  id: '/operadores',
-  path: '/operadores',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedIntegracaoRoute = AuthenticatedIntegracaoRouteImport.update({
-  id: '/integracao',
-  path: '/integracao',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const AuthenticatedAlertasRoute = AuthenticatedAlertasRouteImport.update({
+  id: '/alertas',
+  path: '/alertas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedConfiguracoesRoute =
@@ -63,14 +54,24 @@ const AuthenticatedConfiguracoesRoute =
     path: '/configuracoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedAlertasRoute = AuthenticatedAlertasRouteImport.update({
-  id: '/alertas',
-  path: '/alertas',
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const AuthenticatedIntegracaoRoute = AuthenticatedIntegracaoRouteImport.update({
+  id: '/integracao',
+  path: '/integracao',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedOperadoresRoute = AuthenticatedOperadoresRouteImport.update({
+  id: '/operadores',
+  path: '/operadores',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedConversasIndexRoute =
@@ -84,6 +85,12 @@ const AuthenticatedConversasIdRoute =
     id: '/conversas/$id',
     path: '/conversas/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const ApiInternalSweepAnalysisRoute =
+  ApiInternalSweepAnalysisRouteImport.update({
+    id: '/api/internal/sweep-analysis',
+    path: '/api/internal/sweep-analysis',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicWebhookRecvTokenRoute =
   ApiPublicWebhookRecvTokenRouteImport.update({
@@ -103,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/operadores': typeof AuthenticatedOperadoresRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/conversas/$id': typeof AuthenticatedConversasIdRoute
+  '/api/internal/sweep-analysis': typeof ApiInternalSweepAnalysisRoute
   '/conversas/': typeof AuthenticatedConversasIndexRoute
   '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
 }
@@ -117,6 +125,7 @@ export interface FileRoutesByTo {
   '/operadores': typeof AuthenticatedOperadoresRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/conversas/$id': typeof AuthenticatedConversasIdRoute
+  '/api/internal/sweep-analysis': typeof ApiInternalSweepAnalysisRoute
   '/conversas': typeof AuthenticatedConversasIndexRoute
   '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
 }
@@ -133,6 +142,7 @@ export interface FileRoutesById {
   '/_authenticated/operadores': typeof AuthenticatedOperadoresRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/conversas/$id': typeof AuthenticatedConversasIdRoute
+  '/api/internal/sweep-analysis': typeof ApiInternalSweepAnalysisRoute
   '/_authenticated/conversas/': typeof AuthenticatedConversasIndexRoute
   '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
 }
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/operadores'
     | '/relatorios'
     | '/conversas/$id'
+    | '/api/internal/sweep-analysis'
     | '/conversas/'
     | '/api/public/webhook/recv/$token'
   fileRoutesByTo: FileRoutesByTo
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/operadores'
     | '/relatorios'
     | '/conversas/$id'
+    | '/api/internal/sweep-analysis'
     | '/conversas'
     | '/api/public/webhook/recv/$token'
   id:
@@ -178,6 +190,7 @@ export interface FileRouteTypes {
     | '/_authenticated/operadores'
     | '/_authenticated/relatorios'
     | '/_authenticated/conversas/$id'
+    | '/api/internal/sweep-analysis'
     | '/_authenticated/conversas/'
     | '/api/public/webhook/recv/$token'
   fileRoutesById: FileRoutesById
@@ -186,16 +199,17 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiInternalSweepAnalysisRoute: typeof ApiInternalSweepAnalysisRoute
   ApiPublicWebhookRecvTokenRoute: typeof ApiPublicWebhookRecvTokenRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -205,46 +219,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/relatorios': {
-      id: '/_authenticated/relatorios'
-      path: '/relatorios'
-      fullPath: '/relatorios'
-      preLoaderRoute: typeof AuthenticatedRelatoriosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/operadores': {
-      id: '/_authenticated/operadores'
-      path: '/operadores'
-      fullPath: '/operadores'
-      preLoaderRoute: typeof AuthenticatedOperadoresRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/integracao': {
-      id: '/_authenticated/integracao'
-      path: '/integracao'
-      fullPath: '/integracao'
-      preLoaderRoute: typeof AuthenticatedIntegracaoRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/configuracoes': {
-      id: '/_authenticated/configuracoes'
-      path: '/configuracoes'
-      fullPath: '/configuracoes'
-      preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/alertas': {
@@ -254,11 +240,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAlertasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/admin': {
-      id: '/_authenticated/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+    '/_authenticated/configuracoes': {
+      id: '/_authenticated/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/integracao': {
+      id: '/_authenticated/integracao'
+      path: '/integracao'
+      fullPath: '/integracao'
+      preLoaderRoute: typeof AuthenticatedIntegracaoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/operadores': {
+      id: '/_authenticated/operadores'
+      path: '/operadores'
+      fullPath: '/operadores'
+      preLoaderRoute: typeof AuthenticatedOperadoresRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/relatorios': {
+      id: '/_authenticated/relatorios'
+      path: '/relatorios'
+      fullPath: '/relatorios'
+      preLoaderRoute: typeof AuthenticatedRelatoriosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/conversas/': {
@@ -274,6 +288,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/conversas/$id'
       preLoaderRoute: typeof AuthenticatedConversasIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/internal/sweep-analysis': {
+      id: '/api/internal/sweep-analysis'
+      path: '/api/internal/sweep-analysis'
+      fullPath: '/api/internal/sweep-analysis'
+      preLoaderRoute: typeof ApiInternalSweepAnalysisRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/webhook/recv/$token': {
       id: '/api/public/webhook/recv/$token'
@@ -316,6 +337,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiInternalSweepAnalysisRoute: ApiInternalSweepAnalysisRoute,
   ApiPublicWebhookRecvTokenRoute: ApiPublicWebhookRecvTokenRoute,
 }
 export const routeTree = rootRouteImport

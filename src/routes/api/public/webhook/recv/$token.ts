@@ -468,7 +468,7 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
             const idleMs = lastOpposite ? Date.now() - new Date(lastOpposite.sent_at).getTime() : 0;
             const shouldAnalyze =
               newTotal % 10 === 0 ||
-              (fromMe && closingRegex.test(messageText)) ||
+              closingRegex.test(messageText) ||
               (!fromMe && idleMs > 30 * 60 * 1000);
             if (shouldAnalyze) {
               import("@/lib/ai/analyze.server")
