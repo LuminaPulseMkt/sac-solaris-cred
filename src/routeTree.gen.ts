@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAlertasRouteImport } from './routes/_authenticated/alertas'
+import { Route as AuthenticatedCampanhasRouteImport } from './routes/_authenticated/campanhas'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedIntegracaoRouteImport } from './routes/_authenticated/integracao'
@@ -22,6 +23,7 @@ import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authentic
 import { Route as AuthenticatedConversasIndexRouteImport } from './routes/_authenticated/conversas.index'
 import { Route as AuthenticatedConversasIdRouteImport } from './routes/_authenticated/conversas.$id'
 import { Route as ApiInternalSweepAnalysisRouteImport } from './routes/api/internal/sweep-analysis'
+import { Route as ApiPublicCampaignSendTokenRouteImport } from './routes/api/public/campaign/send/$token'
 import { Route as ApiPublicWebhookRecvTokenRouteImport } from './routes/api/public/webhook/recv/$token'
 
 const IndexRoute = IndexRouteImport.update({
@@ -46,6 +48,11 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
 const AuthenticatedAlertasRoute = AuthenticatedAlertasRouteImport.update({
   id: '/alertas',
   path: '/alertas',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCampanhasRoute = AuthenticatedCampanhasRouteImport.update({
+  id: '/campanhas',
+  path: '/campanhas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedConfiguracoesRoute =
@@ -92,6 +99,12 @@ const ApiInternalSweepAnalysisRoute =
     path: '/api/internal/sweep-analysis',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCampaignSendTokenRoute =
+  ApiPublicCampaignSendTokenRouteImport.update({
+    id: '/api/public/campaign/send/$token',
+    path: '/api/public/campaign/send/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicWebhookRecvTokenRoute =
   ApiPublicWebhookRecvTokenRouteImport.update({
     id: '/api/public/webhook/recv/$token',
@@ -104,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/alertas': typeof AuthenticatedAlertasRoute
+  '/campanhas': typeof AuthenticatedCampanhasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/integracao': typeof AuthenticatedIntegracaoRoute
@@ -112,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/conversas/$id': typeof AuthenticatedConversasIdRoute
   '/api/internal/sweep-analysis': typeof ApiInternalSweepAnalysisRoute
   '/conversas/': typeof AuthenticatedConversasIndexRoute
+  '/api/public/campaign/send/$token': typeof ApiPublicCampaignSendTokenRoute
   '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
 }
 export interface FileRoutesByTo {
@@ -119,6 +134,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/alertas': typeof AuthenticatedAlertasRoute
+  '/campanhas': typeof AuthenticatedCampanhasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/integracao': typeof AuthenticatedIntegracaoRoute
@@ -127,6 +143,7 @@ export interface FileRoutesByTo {
   '/conversas/$id': typeof AuthenticatedConversasIdRoute
   '/api/internal/sweep-analysis': typeof ApiInternalSweepAnalysisRoute
   '/conversas': typeof AuthenticatedConversasIndexRoute
+  '/api/public/campaign/send/$token': typeof ApiPublicCampaignSendTokenRoute
   '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
 }
 export interface FileRoutesById {
@@ -136,6 +153,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/alertas': typeof AuthenticatedAlertasRoute
+  '/_authenticated/campanhas': typeof AuthenticatedCampanhasRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/integracao': typeof AuthenticatedIntegracaoRoute
@@ -144,6 +162,7 @@ export interface FileRoutesById {
   '/_authenticated/conversas/$id': typeof AuthenticatedConversasIdRoute
   '/api/internal/sweep-analysis': typeof ApiInternalSweepAnalysisRoute
   '/_authenticated/conversas/': typeof AuthenticatedConversasIndexRoute
+  '/api/public/campaign/send/$token': typeof ApiPublicCampaignSendTokenRoute
   '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
 }
 export interface FileRouteTypes {
@@ -153,6 +172,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/admin'
     | '/alertas'
+    | '/campanhas'
     | '/configuracoes'
     | '/dashboard'
     | '/integracao'
@@ -161,6 +181,7 @@ export interface FileRouteTypes {
     | '/conversas/$id'
     | '/api/internal/sweep-analysis'
     | '/conversas/'
+    | '/api/public/campaign/send/$token'
     | '/api/public/webhook/recv/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -168,6 +189,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/admin'
     | '/alertas'
+    | '/campanhas'
     | '/configuracoes'
     | '/dashboard'
     | '/integracao'
@@ -176,6 +198,7 @@ export interface FileRouteTypes {
     | '/conversas/$id'
     | '/api/internal/sweep-analysis'
     | '/conversas'
+    | '/api/public/campaign/send/$token'
     | '/api/public/webhook/recv/$token'
   id:
     | '__root__'
@@ -184,6 +207,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/admin'
     | '/_authenticated/alertas'
+    | '/_authenticated/campanhas'
     | '/_authenticated/configuracoes'
     | '/_authenticated/dashboard'
     | '/_authenticated/integracao'
@@ -192,6 +216,7 @@ export interface FileRouteTypes {
     | '/_authenticated/conversas/$id'
     | '/api/internal/sweep-analysis'
     | '/_authenticated/conversas/'
+    | '/api/public/campaign/send/$token'
     | '/api/public/webhook/recv/$token'
   fileRoutesById: FileRoutesById
 }
@@ -200,6 +225,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiInternalSweepAnalysisRoute: typeof ApiInternalSweepAnalysisRoute
+  ApiPublicCampaignSendTokenRoute: typeof ApiPublicCampaignSendTokenRoute
   ApiPublicWebhookRecvTokenRoute: typeof ApiPublicWebhookRecvTokenRoute
 }
 
@@ -238,6 +264,13 @@ declare module '@tanstack/react-router' {
       path: '/alertas'
       fullPath: '/alertas'
       preLoaderRoute: typeof AuthenticatedAlertasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/campanhas': {
+      id: '/_authenticated/campanhas'
+      path: '/campanhas'
+      fullPath: '/campanhas'
+      preLoaderRoute: typeof AuthenticatedCampanhasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/configuracoes': {
@@ -296,6 +329,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiInternalSweepAnalysisRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/campaign/send/$token': {
+      id: '/api/public/campaign/send/$token'
+      path: '/api/public/campaign/send/$token'
+      fullPath: '/api/public/campaign/send/$token'
+      preLoaderRoute: typeof ApiPublicCampaignSendTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/webhook/recv/$token': {
       id: '/api/public/webhook/recv/$token'
       path: '/api/public/webhook/recv/$token'
@@ -309,6 +349,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAlertasRoute: typeof AuthenticatedAlertasRoute
+  AuthenticatedCampanhasRoute: typeof AuthenticatedCampanhasRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedIntegracaoRoute: typeof AuthenticatedIntegracaoRoute
@@ -321,6 +362,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAlertasRoute: AuthenticatedAlertasRoute,
+  AuthenticatedCampanhasRoute: AuthenticatedCampanhasRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedIntegracaoRoute: AuthenticatedIntegracaoRoute,
@@ -338,6 +380,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiInternalSweepAnalysisRoute: ApiInternalSweepAnalysisRoute,
+  ApiPublicCampaignSendTokenRoute: ApiPublicCampaignSendTokenRoute,
   ApiPublicWebhookRecvTokenRoute: ApiPublicWebhookRecvTokenRoute,
 }
 export const routeTree = rootRouteImport

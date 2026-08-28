@@ -345,6 +345,81 @@ export type Database = {
           },
         ]
       }
+      campaigns: {
+        Row: {
+          id: string
+          name: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      campaign_sends: {
+        Row: {
+          id: string
+          campaign_id: string
+          operator_id: string | null
+          lead_phone: string
+          lead_name: string | null
+          message_text: string | null
+          sent_at: string
+          replied: boolean
+          replied_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          campaign_id: string
+          operator_id?: string | null
+          lead_phone: string
+          lead_name?: string | null
+          message_text?: string | null
+          sent_at?: string
+          replied?: boolean
+          replied_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          campaign_id?: string
+          operator_id?: string | null
+          lead_phone?: string
+          lead_name?: string | null
+          message_text?: string | null
+          sent_at?: string
+          replied?: boolean
+          replied_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_sends_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_sends_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       operators: {
         Row: {
           channel: string

@@ -388,6 +388,20 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
           return Response.json({ error: "DB error" }, { status: 500 });
         }
 
+        // Lead respondeu — casa com envios de campanha pendentes deste lead/operador.
+        if (!fromMe) {
+          try {
+            await supabase
+              .from("campaign_sends")
+              .update({ replied: true, replied_at: new Date().toISOString() })
+              .eq("operator_id", operator.id)
+              .eq("lead_phone", leadPhone)
+              .eq("replied", false);
+          } catch {
+            // não bloqueia o webhook por causa disso
+          }
+        }
+
         // Recalculate avg response time using only operator responses
         const { data: opResponses } = await supabase
           .from("messages")

@@ -13,6 +13,7 @@ import {
   LogOut,
   Building2,
   Check,
+  Megaphone,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -44,6 +45,7 @@ const overview = [
   { title: "Visão geral", url: "/dashboard", icon: LayoutDashboard },
   { title: "Conversas", url: "/conversas", icon: MessagesSquare },
   { title: "Operadores", url: "/operadores", icon: Users },
+  { title: "Campanhas", url: "/campanhas", icon: Megaphone },
 ];
 
 const alertsReports = [
