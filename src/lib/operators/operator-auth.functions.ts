@@ -205,3 +205,128 @@ export const revokeOperatorAccess = createServerFn({ method: "POST" })
       .eq("id", data.operator_id);
     return { ok: true };
   });
+
+const createCollaboratorSchema = z.object({
+  name: z.string().min(1),
+  instance_name: z.string().min(1),
+  channel: z.string().default("whatsapp"),
+  description: z.string().optional().nullable(),
+  setor_id: z.string().uuid().nullable().optional(),
+  email: z.string().email(),
+});
+
+export const createCollaborator = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+  .inputValidator((input) => createCollaboratorSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: created, error } = await supabaseAdmin
+      .from("operators")
+      .insert({
+        name: data.name,
+        instance_name: data.instance_name,
+        channel: data.channel,
+        description: data.description ?? null,
+        status: "pending",
+        setor_id: data.setor_id ?? null,
+      } as never)
+      .select()
+      .single();
+    if (error || !created) throw new Error(error?.message ?? "Falha ao criar operador");
+
+    const webhookUrl = `https://sac.renassolnuvem.tech/api/public/webhook/recv/${created.token}`;
+    await supabaseAdmin.from("operators").update({ webhook_url: webhookUrl }).eq("id", created.id);
+
+    const { data: evoRows } = await supabaseAdmin
+      .from("app_settings")
+      .select("key, value")
+      .in("key", ["evolution_api_url", "evolution_api_key"]);
+    const evoMap: Record<string, string> = {};
+    for (const r of evoRows ?? []) evoMap[r.key] = r.value ?? "";
+    const evoUrl = (evoMap.evolution_api_url ?? "").replace(/\/+$/, "");
+    const evoKey = evoMap.evolution_api_key ?? "";
+
+    if (!evoUrl || !evoKey) {
+      await supabaseAdmin.from("operators").delete().eq("id", created.id);
+      throw new Error("Evolution API não configurada (Configurações → Integrações).");
+    }
+
+    try {
+      const createRes = await fetch(`${evoUrl}/instance/create`, {
+        method: "POST",
+        headers: { apikey: evoKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instanceName: data.instance_name,
+          qrcode: true,
+          integration: "WHATSAPP-BAILEYS",
+        }),
+      });
+      if (!createRes.ok) {
+        const txt = await createRes.text();
+        throw new Error(`HTTP ${createRes.status}: ${txt.slice(0, 200)}`);
+      }
+
+      await fetch(`${evoUrl}/webhook/set/${encodeURIComponent(data.instance_name)}`, {
+        method: "POST",
+        headers: { apikey: evoKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          webhook: {
+            url: webhookUrl,
+            enabled: true,
+            events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE"],
+            webhookByEvents: false,
+            base64: false,
+          },
+        }),
+      }).catch(() => {});
+    } catch (e) {
+      await supabaseAdmin.from("operators").delete().eq("id", created.id);
+      throw new Error(
+        `Falha ao criar instância na Evolution API: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+
+    const generatedPassword = generateStrongPassword();
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: data.email,
+      password: generatedPassword,
+      email_confirm: true,
+    });
+
+    let emailSent = false;
+    let emailError: string | null = null;
+
+    if (authError || !authData?.user) {
+      emailError = `Instância criada, mas falha ao criar login: ${authError?.message ?? "erro desconhecido"}`;
+    } else {
+      await supabaseAdmin
+        .from("operators")
+        .update({ user_id: authData.user.id, email: data.email })
+        .eq("id", created.id);
+
+      const { sendEmail } = await import("@/lib/email/resend.server");
+      const result = await sendEmail({
+        to: data.email,
+        subject: `Seu acesso ao SAC — ${data.name}`,
+        html: `
+          <p>Olá, ${data.name}!</p>
+          <p>Seu acesso ao painel SAC (Solaris Analytics Chat) foi criado. Use os dados abaixo para entrar:</p>
+          <p><strong>Link:</strong> <a href="https://sac.renassolnuvem.tech">https://sac.renassolnuvem.tech</a></p>
+          <p><strong>E-mail:</strong> ${data.email}</p>
+          <p><strong>Senha:</strong> ${generatedPassword}</p>
+          <p>Recomendamos alterar a senha após o primeiro acesso.</p>
+          <p>Para conectar o WhatsApp da sua instância, peça para quem cadastrou você escanear o QR code na tela de Integração do SAC.</p>
+        `,
+      });
+      emailSent = result.ok;
+      if (!result.ok) emailError = result.error ?? "Falha desconhecida ao enviar e-mail";
+    }
+
+    return {
+      operator: { ...created, webhook_url: webhookUrl },
+      password: generatedPassword,
+      email: data.email,
+      emailSent,
+      emailError,
+    };
+  });

@@ -35,6 +35,7 @@ import {
 import {
   listOperatorsWithAccess,
   createOperatorUser,
+  createCollaborator,
   updateOperatorPassword,
   revokeOperatorAccess,
 } from "@/lib/operators/operator-auth.functions";
@@ -682,24 +683,36 @@ function EditOperatorDialog({
 }
 
 function NewOperatorForm({ onCreated }: { onCreated: () => void }) {
-  const createFn = useServerFn(createOperator);
+  const createFn = useServerFn(createCollaborator);
+  const setoresFn = useServerFn(listSetores);
+  const { data: setoresList = [] } = useQuery({ queryKey: ["setores"], queryFn: () => setoresFn() });
+
   const [name, setName] = useState("");
   const [instance, setInstance] = useState("");
   const [channel, setChannel] = useState("whatsapp");
   const [description, setDescription] = useState("");
+  const [setorId, setSetorId] = useState<string>("none");
+  const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [created, setCreated] = useState<Awaited<ReturnType<typeof createOperator>> | null>(null);
+  const [created, setCreated] = useState<Awaited<ReturnType<typeof createCollaborator>> | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const op = await createFn({
-        data: { name, instance_name: instance, channel, description, status: "pending" },
+      const result = await createFn({
+        data: {
+          name,
+          instance_name: instance,
+          channel,
+          description,
+          setor_id: setorId === "none" ? null : setorId,
+          email,
+        },
       });
-      setCreated(op);
-      setName(""); setInstance(""); setDescription("");
-      toast.success("Operador cadastrado");
+      setCreated(result);
+      setName(""); setInstance(""); setDescription(""); setEmail(""); setSetorId("none");
+      toast.success("Colaborador cadastrado");
       onCreated();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao criar");
@@ -716,9 +729,36 @@ function NewOperatorForm({ onCreated }: { onCreated: () => void }) {
           <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="André" required className="mt-1" />
         </div>
         <div>
+          <Label htmlFor="email">E-mail *</Label>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="andre@empresa.com.br"
+            required
+            className="mt-1"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            O acesso ao SAC (login + senha) é criado automaticamente e enviado para este e-mail.
+          </p>
+        </div>
+        <div>
+          <Label htmlFor="setor">Setor</Label>
+          <Select value={setorId} onValueChange={setSetorId}>
+            <SelectTrigger id="setor" className="mt-1"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Sem setor</SelectItem>
+              {setoresList.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
           <Label htmlFor="instance">Instância Evolution *</Label>
           <Input id="instance" value={instance} onChange={(e) => setInstance(e.target.value)} placeholder="comercial-andre" required className="mt-1 font-mono" />
-          <p className="mt-1 text-xs text-muted-foreground">Nome exato da instância na Evolution API.</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Nome novo — o SAC cria essa instância na Evolution API e já configura o webhook.
+          </p>
         </div>
         <div>
           <Label htmlFor="channel">Canal *</Label>
@@ -737,60 +777,56 @@ function NewOperatorForm({ onCreated }: { onCreated: () => void }) {
           <Textarea id="desc" value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1" rows={2} />
         </div>
         <Button type="submit" disabled={submitting} className="bg-brand text-brand-foreground hover:bg-brand-strong">
-          {submitting ? "Salvando…" : "Cadastrar e gerar webhook"}
+          {submitting ? "Criando…" : "Cadastrar colaborador"}
         </Button>
       </form>
 
       <div className="space-y-4">
         {created && (
-          <div className="rounded-lg border border-success/40 bg-success/5 p-4">
-            <h3 className="text-sm font-semibold">Operador cadastrado! 🎉</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Cole esta URL no webhook da instância <strong>{created.instance_name}</strong> na Evolution API:
-            </p>
-            <div className="mt-2 flex gap-2">
-              <code className="flex-1 truncate rounded bg-surface px-2 py-2 text-xs font-mono">{created.webhook_url}</code>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={async () => {
-                  const ok = await copyToClipboard(created.webhook_url ?? "");
-                  if (ok) toast.success("URL copiada");
-                  else toast.error("Não foi possível copiar. Selecione e copie manualmente.");
-                }}
-              >
-                <Copy className="h-3.5 w-3.5" /> Copiar
-              </Button>
+          <>
+            <div className="rounded-lg border border-success/40 bg-success/5 p-4 space-y-2">
+              <h3 className="text-sm font-semibold">Colaborador cadastrado! 🎉</h3>
+              <p className="text-xs text-muted-foreground">
+                Instância <strong>{created.operator.instance_name}</strong> criada na Evolution API, com webhook já configurado.
+              </p>
+              {created.emailSent ? (
+                <div className="flex items-center gap-2 rounded-md bg-success/10 p-2 text-xs text-success">
+                  <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                  E-mail de acesso enviado para {created.email}
+                </div>
+              ) : (
+                <div className="space-y-2 rounded-md bg-warning/10 p-2 text-xs text-warning">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                    {created.emailError ?? "Não foi possível enviar o e-mail automático."} Repasse manualmente:
+                  </div>
+                  <div className="flex gap-2">
+                    <Input value={created.email} readOnly className="h-8 font-mono text-xs" />
+                    <Input value={created.password} readOnly className="h-8 font-mono text-xs" />
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8 flex-shrink-0"
+                      onClick={async () => {
+                        const ok = await copyToClipboard(`Login: ${created.email}
+Senha: ${created.password}`);
+                        if (ok) toast.success("Copiado"); else toast.error("Falha ao copiar");
+                      }}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
-            <p className="mt-2 text-xs">Evento a ativar: <code className="rounded bg-surface px-1">messages.upsert</code></p>
-          </div>
-        )}
 
-        <div className="rounded-lg border border-border bg-card p-4 text-xs leading-relaxed">
-          <h3 className="mb-2 text-sm font-semibold">Como adicionar na Evolution API</h3>
-          <p className="font-medium">Opção A — Pelo painel:</p>
-          <ol className="ml-4 list-decimal space-y-0.5 text-muted-foreground">
-            <li>Acesse o painel da Evolution API</li>
-            <li>Selecione a instância</li>
-            <li>Vá em "Webhooks" → "Adicionar webhook"</li>
-            <li>Cole a URL gerada acima</li>
-            <li>Ative o evento <code>messages.upsert</code> e salve</li>
-          </ol>
-          <p className="mt-3 font-medium">Opção B — Via curl:</p>
-          <pre className="mt-1 overflow-auto rounded bg-surface p-2 text-[10px]">
-{`curl -X POST https://<evolution-url>/webhook/set/<instancia> \\
-  -H "apikey: <sua-api-key>" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "url": "<URL gerada pelo SAC>",
-    "webhook_by_events": true,
-    "events": ["MESSAGES_UPSERT"]
-  }'`}
-          </pre>
-          <p className="mt-2 text-muted-foreground">
-            O n8n continua recebendo normalmente — o SAC recebe uma cópia paralela.
-          </p>
-        </div>
+            <InstanceStatusCard
+              instanceName={created.operator.instance_name}
+              operatorName={created.operator.name}
+            />
+          </>
+        )}
       </div>
     </div>
   );
