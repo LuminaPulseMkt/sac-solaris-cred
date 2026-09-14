@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { z } from "zod";
 import { getRequestHost } from "@tanstack/react-start/server";
 
@@ -25,7 +26,7 @@ function buildWebhookUrl(token: string): string {
   return `${base}/api/public/webhook/recv/${token}`;
 }
 
-export const fixWebhookUrls = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).handler(async () => {
+export const fixWebhookUrls = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin]).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const base = getPublicAppUrl();
   if (!base) return { updated: 0 };
@@ -51,7 +52,7 @@ export const fixWebhookUrls = createServerFn({ method: "POST" }).middleware([req
   return { updated };
 });
 
-export const listOperators = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async () => {
+export const listOperators = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth, requireAdmin]).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin
     .from("operators")
@@ -69,7 +70,7 @@ const createSchema = z.object({
   status: z.enum(["pending", "active", "inactive"]).default("pending"),
 });
 
-export const createOperator = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const createOperator = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => createSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -99,7 +100,7 @@ const updateSchema = z.object({
   status: z.enum(["pending", "active", "inactive", "error"]).optional(),
 });
 
-export const updateOperator = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const updateOperator = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => updateSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -114,7 +115,7 @@ export const updateOperator = createServerFn({ method: "POST" }).middleware([req
     return updated;
   });
 
-export const regenerateToken = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const regenerateToken = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -130,7 +131,7 @@ export const regenerateToken = createServerFn({ method: "POST" }).middleware([re
     return updated;
   });
 
-export const deleteOperator = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const deleteOperator = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -146,7 +147,7 @@ export const deleteOperator = createServerFn({ method: "POST" }).middleware([req
     return { ok: true };
   });
 
-export const listWebhookLogs = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
+export const listWebhookLogs = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => z.object({ operator_id: z.string().uuid().optional() }).parse(input ?? {}))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -161,7 +162,7 @@ export const listWebhookLogs = createServerFn({ method: "GET" }).middleware([req
     return logs ?? [];
   });
 
-export const deleteConversation = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const deleteConversation = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -171,7 +172,7 @@ export const deleteConversation = createServerFn({ method: "POST" }).middleware(
     return { ok: true };
   });
 
-export const deleteConversations = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const deleteConversations = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => z.object({ ids: z.array(z.string().uuid()).min(1) }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -307,7 +308,7 @@ export const listOperatorStats = createServerFn({ method: "GET" }).middleware([r
   return stats;
 });
 
-export const listWebhookHealth = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async () => {
+export const listWebhookHealth = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth, requireAdmin]).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: ops, error } = await supabaseAdmin

@@ -1,8 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { z } from "zod";
 
-export const listCampaigns = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async () => {
+export const listCampaigns = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth, requireAdmin]).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: campaigns, error } = await supabaseAdmin
     .from("campaigns")
@@ -33,7 +34,7 @@ export const listCampaigns = createServerFn({ method: "GET" }).middleware([requi
   });
 });
 
-export const getCampaignDetail = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
+export const getCampaignDetail = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => z.object({ campaign_id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -57,7 +58,7 @@ export const getCampaignDetail = createServerFn({ method: "GET" }).middleware([r
 
 const renameSchema = z.object({ id: z.string().uuid(), name: z.string().min(1).max(120) });
 
-export const renameCampaign = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const renameCampaign = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => renameSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -71,7 +72,7 @@ export const renameCampaign = createServerFn({ method: "POST" }).middleware([req
 
 const deleteSchema = z.object({ id: z.string().uuid() });
 
-export const deleteCampaign = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const deleteCampaign = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => deleteSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

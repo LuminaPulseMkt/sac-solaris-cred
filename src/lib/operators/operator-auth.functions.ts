@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { z } from "zod";
 
 async function getMyOperatorRow(userId: string) {
@@ -47,7 +48,7 @@ export const getMyProfile = createServerFn({ method: "GET" })
   });
 
 export const listOperatorsWithAccess = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, requireAdmin])
   .handler(async () => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
@@ -77,7 +78,7 @@ function generateStrongPassword(): string {
 }
 
 export const createOperatorUser = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) =>
     z
       .object({
@@ -161,7 +162,7 @@ export const createOperatorUser = createServerFn({ method: "POST" })
 
 
 export const updateOperatorPassword = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) =>
     z
       .object({
@@ -187,7 +188,7 @@ export const updateOperatorPassword = createServerFn({ method: "POST" })
   });
 
 export const revokeOperatorAccess = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => z.object({ operator_id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -215,7 +216,7 @@ const createCollaboratorSchema = z.object({
   email: z.string().email(),
 });
 
-export const createCollaborator = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const createCollaborator = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => createCollaboratorSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

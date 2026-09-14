@@ -1,9 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { z } from "zod";
 
 export const testWhisperTranscription = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) =>
     z
       .object({
@@ -39,16 +40,34 @@ export const testWhisperTranscription = createServerFn({ method: "POST" })
   });
 
 
+async function assertOwnsConversation(userId: string | undefined, conversationId: string): Promise<void> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: op } = await supabaseAdmin
+    .from("operators")
+    .select("id")
+    .eq("user_id", userId ?? "")
+    .maybeSingle();
+  if (!op) return; // not an operator account -> treated as admin, no restriction
+  const { data: conv } = await supabaseAdmin
+    .from("conversations")
+    .select("operator_id")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (!conv || conv.operator_id !== op.id) throw new Error("Acesso negado");
+}
+
 export const analyzeConversationFn = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ conversationId: z.string().uuid() }).parse(input))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertOwnsConversation((context as { userId?: string }).userId, data.conversationId);
     const { analyzeConversationById } = await import("@/lib/ai/analyze.server");
     return analyzeConversationById(data.conversationId);
   });
 
 export const getConversationAnalysis = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ conversationId: z.string().uuid() }).parse(input))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertOwnsConversation((context as { userId?: string }).userId, data.conversationId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: rows, error } = await supabaseAdmin
       .from("ai_analyses")
@@ -60,7 +79,7 @@ export const getConversationAnalysis = createServerFn({ method: "GET" }).middlew
     return rows?.[0] ?? null;
   });
 
-export const listAnalyses = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
+export const listAnalyses = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) =>
     z.object({ since: z.string().datetime().optional(), operatorId: z.string().uuid().optional() }).parse(input ?? {}),
   )
@@ -74,13 +93,13 @@ export const listAnalyses = createServerFn({ method: "GET" }).middleware([requir
     return rows ?? [];
   });
 
-export const isOpenAiConfigured = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async () => {
+export const isOpenAiConfigured = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth, requireAdmin]).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin.from("app_settings").select("value").eq("key", "openai_api_key").maybeSingle();
   return { configured: Boolean(data?.value && data.value.trim().length > 0) };
 });
 
-export const analyzeAllPending = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const analyzeAllPending = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => z.object({ operator_id: z.string().uuid().optional() }).parse(input ?? {}))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -125,7 +144,7 @@ export const analyzeAllPending = createServerFn({ method: "POST" }).middleware([
     return { analyzed, failed, total: pending?.length ?? 0, firstError };
   });
 
-export const getOperatorAiReport = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
+export const getOperatorAiReport = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) =>
     z
       .object({
@@ -198,7 +217,7 @@ export const getOperatorAiReport = createServerFn({ method: "GET" }).middleware(
   });
 
 
-export const transcribePendingAudios = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const transcribePendingAudios = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) =>
     z
       .object({

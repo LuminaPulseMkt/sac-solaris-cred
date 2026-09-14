@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { z } from "zod";
 
 const SENSITIVE_KEYS = new Set(["openai_api_key", "evolution_api_key", "resend_api_key"]);
@@ -11,7 +12,7 @@ export type SafeSettings = {
   sensitive: Record<string, { configured: boolean; lastFour: string | null }>;
 };
 
-export const getSettings = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async (): Promise<SafeSettings> => {
+export const getSettings = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth, requireAdmin]).handler(async (): Promise<SafeSettings> => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin.from("app_settings").select("key,value");
   if (error) throw new Error(error.message);
@@ -35,7 +36,7 @@ export const getSettings = createServerFn({ method: "GET" }).middleware([require
 
 const saveSchema = z.object({ key: z.string().min(1), value: z.string() });
 
-export const saveSetting = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const saveSetting = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => saveSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -49,7 +50,7 @@ export const saveSetting = createServerFn({ method: "POST" }).middleware([requir
     return { ok: true };
   });
 
-export const testEvolutionConnection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).handler(async () => {
+export const testEvolutionConnection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin]).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin
     .from("app_settings")
@@ -91,7 +92,7 @@ export const testEvolutionConnection = createServerFn({ method: "POST" }).middle
   }
 });
 
-export const getActiveInstances = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async () => {
+export const getActiveInstances = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth, requireAdmin]).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin
     .from("operators")
@@ -104,7 +105,7 @@ export const getActiveInstances = createServerFn({ method: "GET" }).middleware([
 
 const testResendSchema = z.object({ to: z.string().email() });
 
-export const testResendEmail = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const testResendEmail = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => testResendSchema.parse(input))
   .handler(async ({ data }) => {
     const { sendEmail } = await import("@/lib/email/resend.server");

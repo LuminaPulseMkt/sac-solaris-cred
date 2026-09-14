@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { z } from "zod";
 
 const schema = z.object({
@@ -43,7 +44,7 @@ function fmtDuration(s: number): string {
   return m > 0 ? `${m}m ${rest}s` : `${rest}s`;
 }
 
-export const sendReportViaEmail = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const sendReportViaEmail = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => schema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
