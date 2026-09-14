@@ -20,6 +20,7 @@ import { sendReportViaWhatsapp } from "@/lib/reports/whatsapp.functions";
 import { sendReportViaEmail } from "@/lib/reports/email.functions";
 import { generateReportPdf, type ReportAnalysisSummary } from "@/lib/reports/generate-pdf";
 import { formatDuration } from "@/lib/sac/format";
+import { useProfile, useIsAdmin } from "@/contexts/profile-context";
 
 
 export const Route = createFileRoute("/_authenticated/relatorios")({
@@ -78,6 +79,9 @@ function summarizeAnalyses(rows: Array<{
 
 function RelatoriosPage() {
   const qc = useQueryClient();
+  const profile = useProfile();
+  const isAdmin = useIsAdmin();
+  const canSendReportEmail = isAdmin || profile?.permissions?.can_send_report_email === true;
   const [period, setPeriod] = useState("7d");
   const [setor, setSetor] = useState("all");
   const [operator, setOperator] = useState("all");
@@ -99,8 +103,9 @@ function RelatoriosPage() {
 
   const { data: convs = [] } = useQuery({ queryKey: ["conversations"], queryFn: () => convsFn(), refetchInterval: 30_000 });
   const { data: stats = [] } = useQuery({ queryKey: ["operator-stats"], queryFn: () => statsFn(), refetchInterval: 30_000 });
-  const { data: analyses = [] } = useQuery({ queryKey: ["analyses"], queryFn: () => analysesFn({ data: {} }), refetchInterval: 60_000 });
-  const { data: settings } = useQuery({ queryKey: ["settings"], queryFn: () => settingsFn() });
+  // analyses/settings/aiReport são visões consolidadas (todos os operadores) — só admin.
+  const { data: analyses = [] } = useQuery({ queryKey: ["analyses"], queryFn: () => analysesFn({ data: {} }), refetchInterval: 60_000, enabled: isAdmin });
+  const { data: settings } = useQuery({ queryKey: ["settings"], queryFn: () => settingsFn(), enabled: isAdmin });
   const { data: setoresList = [] } = useQuery({ queryKey: ["setores"], queryFn: () => setoresFn() });
   const { data: aiReport } = useQuery({
     queryKey: ["ai-report", period, operator],
@@ -112,6 +117,7 @@ function RelatoriosPage() {
         },
       }),
     refetchInterval: 60_000,
+    enabled: isAdmin,
   });
 
   const handleAnalyzeAll = async () => {
@@ -274,6 +280,7 @@ function RelatoriosPage() {
             <Button size="sm" onClick={downloadPdf}>
               <FileText className="h-4 w-4" /> PDF
             </Button>
+            {isAdmin && (
             <Button
               size="sm"
               className="bg-success text-success-foreground hover:bg-success/90"
@@ -284,6 +291,7 @@ function RelatoriosPage() {
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
               WhatsApp
             </Button>
+            )}
           </>
         }
       />
@@ -329,6 +337,7 @@ function RelatoriosPage() {
           </div>
         </section>
 
+        {canSendReportEmail && (
         <section className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-card p-3">
           <span className="text-xs font-medium text-muted-foreground">📧 Enviar por e-mail:</span>
           <div className="flex items-center gap-2">
@@ -374,6 +383,7 @@ function RelatoriosPage() {
             Enviar por e-mail
           </Button>
         </section>
+        )}
 
         <Tabs defaultValue="geral">
           <TabsList>
@@ -452,6 +462,7 @@ function RelatoriosPage() {
               metrics={aiReport?.operatorMetrics ?? []}
               analyzing={analyzing}
               onAnalyzeAll={handleAnalyzeAll}
+              canAnalyzeAll={isAdmin}
             />
           </TabsContent>
 
@@ -460,6 +471,7 @@ function RelatoriosPage() {
               aiReport={aiReport}
               analyzing={analyzing}
               onAnalyzeAll={handleAnalyzeAll}
+              canAnalyzeAll={isAdmin}
             />
           </TabsContent>
         </Tabs>
@@ -495,20 +507,24 @@ function OperatorReportTab({
   metrics,
   analyzing,
   onAnalyzeAll,
+  canAnalyzeAll,
 }: {
   stats: OpStat[];
   metrics: OperatorMetric[];
   analyzing: boolean;
   onAnalyzeAll: () => void;
+  canAnalyzeAll: boolean;
 }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">Métricas consolidadas pela IA por operador</p>
+        {canAnalyzeAll && (
         <Button size="sm" variant="outline" onClick={onAnalyzeAll} disabled={analyzing}>
           {analyzing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
           Analisar pendentes
         </Button>
+        )}
       </div>
 
       {stats.length === 0 ? (
@@ -610,10 +626,12 @@ function AiReportTab({
   aiReport,
   analyzing,
   onAnalyzeAll,
+  canAnalyzeAll,
 }: {
   aiReport: AiReport | undefined;
   analyzing: boolean;
   onAnalyzeAll: () => void;
+  canAnalyzeAll: boolean;
 }) {
   const total = aiReport?.total ?? 0;
   const s = aiReport?.sentiments;
@@ -631,10 +649,12 @@ function AiReportTab({
         <p className="text-sm text-muted-foreground">
           {total > 0 ? `${total} conversas analisadas no período` : "Nenhuma análise no período"}
         </p>
+        {canAnalyzeAll && (
         <Button size="sm" onClick={onAnalyzeAll} disabled={analyzing}>
           {analyzing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
           Analisar pendentes
         </Button>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

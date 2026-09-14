@@ -41,6 +41,9 @@ import {
 } from "@/lib/operators/operator-auth.functions";
 import { copyToClipboard } from "@/lib/clipboard";
 import { listSetores, createSetor, updateSetor, deleteSetor, assignOperatorSetor } from "@/lib/setores/setores.functions";
+import { listOperatorsPermissions, updateOperatorPermissions } from "@/lib/permissions/permissions.functions";
+import { PAGE_PERMISSIONS, ACTION_PERMISSIONS, PERMISSION_COLUMN, type OperatorPermissions } from "@/lib/permissions/permission-defaults";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type TestResult = {
   ok: boolean;
@@ -157,6 +160,7 @@ function IntegracaoPage() {
             <TabsTrigger value="list">Operadores</TabsTrigger>
             <TabsTrigger value="new">Cadastrar operador</TabsTrigger>
             <TabsTrigger value="setores">Setores</TabsTrigger>
+            <TabsTrigger value="permissoes">Permissões</TabsTrigger>
             <TabsTrigger value="instances">Instâncias</TabsTrigger>
             <TabsTrigger value="logs">Logs de recebimento</TabsTrigger>
           </TabsList>
@@ -172,6 +176,10 @@ function IntegracaoPage() {
 
           <TabsContent value="setores">
             <SetoresTab setores={setores.data ?? []} loading={setores.isLoading} onChange={refresh} />
+          </TabsContent>
+
+          <TabsContent value="permissoes">
+            <PermissoesTab />
           </TabsContent>
 
           <TabsContent value="new">
@@ -588,6 +596,111 @@ function SetoresTab({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+type OperatorPermissionRow = {
+  id: string;
+  name: string;
+  instance_name: string;
+  setor_name: string | null;
+  permissions: OperatorPermissions;
+};
+
+const ALL_PERMISSION_ITEMS = [...PAGE_PERMISSIONS, ...ACTION_PERMISSIONS];
+
+function PermissoesTab() {
+  const qc = useQueryClient();
+  const listFn = useServerFn(listOperatorsPermissions);
+  const updateFn = useServerFn(updateOperatorPermissions);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["operators-permissions"],
+    queryFn: () => listFn(),
+  });
+
+  async function handleToggle(operatorId: string, column: keyof OperatorPermissions, value: boolean) {
+    const key = `${operatorId}:${column}`;
+    setSavingKey(key);
+    qc.setQueryData<OperatorPermissionRow[]>(["operators-permissions"], (old) =>
+      (old ?? []).map((r) => (r.id === operatorId ? { ...r, permissions: { ...r.permissions, [column]: value } } : r)),
+    );
+    try {
+      await updateFn({ data: { operator_id: operatorId, [column]: value } });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar permissão");
+      qc.invalidateQueries({ queryKey: ["operators-permissions"] });
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  if (isLoading) {
+    return <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">Carregando…</div>;
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center">
+        <p className="text-sm font-medium">Nenhum operador cadastrado ainda.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Cadastre um operador na aba "Cadastrar operador" para gerenciar as permissões dele aqui.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+        <p>
+          Escolha o que cada operador pode ver e fazer dentro do SAC. Contas de admin (sem instância
+          vinculada) sempre têm acesso total, independente do que estiver marcado aqui.
+        </p>
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="min-w-[160px]">Operador</TableHead>
+              {ALL_PERMISSION_ITEMS.map((p) => (
+                <TableHead key={p.key} className="whitespace-nowrap text-center" title={p.hint}>
+                  {p.label}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((op) => (
+              <TableRow key={op.id}>
+                <TableCell>
+                  <div className="font-medium">{op.name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {op.instance_name}
+                    {op.setor_name ? ` · ${op.setor_name}` : ""}
+                  </div>
+                </TableCell>
+                {ALL_PERMISSION_ITEMS.map((p) => {
+                  const column = PERMISSION_COLUMN[p.key];
+                  const key = `${op.id}:${column}`;
+                  return (
+                    <TableCell key={p.key} className="text-center">
+                      <Checkbox
+                        checked={op.permissions[column]}
+                        disabled={savingKey === key}
+                        onCheckedChange={(v) => handleToggle(op.id, column, Boolean(v))}
+                      />
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

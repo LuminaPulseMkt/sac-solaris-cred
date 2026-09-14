@@ -15,6 +15,7 @@ import { listConversations, listWebhookHealth, regenerateToken } from "@/lib/ope
 import { listSetores } from "@/lib/setores/setores.functions";
 import { listAnalyses } from "@/lib/ai/ai.functions";
 import { formatDuration, formatDateTime } from "@/lib/sac/format";
+import { useIsAdmin } from "@/contexts/profile-context";
 
 export const Route = createFileRoute("/_authenticated/alertas")({
   head: () => ({
@@ -89,6 +90,7 @@ function AlertCard({ alert }: { alert: AlertItem }) {
 
 function AlertasPage() {
   const qc = useQueryClient();
+  const isAdmin = useIsAdmin();
   const { rules, setRules } = useSettingsStore();
   const convsFn = useServerFn(listConversations);
   const analysesFn = useServerFn(listAnalyses);
@@ -110,15 +112,19 @@ function AlertasPage() {
       return (opRow?.setor_id ?? null) === setor;
     });
   }, [convsRaw, setor]);
+  // listAnalyses e listWebhookHealth são visões consolidadas (todos os
+  // operadores) — restritas a admin, sem toggle por operador.
   const { data: analyses = [] } = useQuery({
     queryKey: ["analyses"],
     queryFn: () => analysesFn({ data: {} }),
     refetchInterval: 60_000,
+    enabled: isAdmin,
   });
   const { data: healthRaw = [] } = useQuery({
     queryKey: ["webhook-health"],
     queryFn: () => healthFn(),
     refetchInterval: 60_000,
+    enabled: isAdmin,
   });
   const health = useMemo(() => {
     if (setor === "all") return healthRaw;
@@ -259,7 +265,8 @@ function AlertasPage() {
 
         {/* ── Lista de alertas ── */}
         <section className="space-y-4">
-          {/* Saúde dos webhooks */}
+          {/* Saúde dos webhooks — visão consolidada, só para admin */}
+          {isAdmin && (
           <div className={`rounded-lg border p-4 ${silentOperators.length > 0 ? "border-danger/40 bg-danger/5" : "border-border bg-card"}`}>
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -302,6 +309,7 @@ function AlertasPage() {
               </ul>
             )}
           </div>
+          )}
 
           {alerts.length === 0 ? (
             <div className="flex min-h-[180px] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card text-center">

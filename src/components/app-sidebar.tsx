@@ -101,11 +101,27 @@ export function AppSidebar() {
 
   const adminItem = { title: "Empresas", url: "/admin", icon: Building2 };
 
+  // Operador só vê o que o admin liberou em Integração → Permissões.
+  // Enquanto o perfil ainda carrega, `permissions` fica undefined — nesse
+  // caso libera tudo pra não "piscar" itens somem/aparecem.
+  const permissions = profile?.permissions;
+  const operatorCanSee = (url: string): boolean => {
+    if (!permissions) return true;
+    switch (url) {
+      case "/dashboard": return permissions.can_view_dashboard;
+      case "/conversas": return permissions.can_view_conversas;
+      case "/campanhas": return permissions.can_view_campanhas;
+      case "/alertas": return permissions.can_view_alertas;
+      case "/relatorios": return permissions.can_view_relatorios;
+      default: return false;
+    }
+  };
+
   const visibleOverview = isOperator
-    ? overview.filter((i) => ["/dashboard", "/conversas"].includes(i.url))
+    ? overview.filter((i) => i.url !== "/operadores" && operatorCanSee(i.url))
     : overview;
   const visibleAlertsReports = isOperator
-    ? alertsReports.filter((i) => ["/alertas", "/relatorios"].includes(i.url))
+    ? alertsReports.filter((i) => i.url !== "/configuracoes#scoring" && operatorCanSee(i.url))
     : alertsReports;
 
   return (

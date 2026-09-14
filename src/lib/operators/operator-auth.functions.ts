@@ -2,6 +2,27 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { z } from "zod";
+import { PERMISSION_DEFAULTS, type OperatorPermissions } from "@/lib/permissions/permission-defaults";
+
+async function getMyPermissionsRow(operatorId: string): Promise<OperatorPermissions> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("operator_permissions")
+    .select("*")
+    .eq("operator_id", operatorId)
+    .maybeSingle();
+  if (!data) return PERMISSION_DEFAULTS;
+  return {
+    can_view_dashboard: Boolean(data.can_view_dashboard),
+    can_view_conversas: Boolean(data.can_view_conversas),
+    can_view_alertas: Boolean(data.can_view_alertas),
+    can_view_relatorios: Boolean(data.can_view_relatorios),
+    can_view_campanhas: Boolean(data.can_view_campanhas),
+    can_delete_conversations: Boolean(data.can_delete_conversations),
+    can_view_ai_analysis: Boolean(data.can_view_ai_analysis),
+    can_send_report_email: Boolean(data.can_send_report_email),
+  };
+}
 
 async function getMyOperatorRow(userId: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -18,7 +39,7 @@ export const getMyProfile = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const userId = (context as { userId?: string }).userId;
-    if (!userId) return { role: "admin" as const, operator: null, email: "" };
+    if (!userId) return { role: "admin" as const, operator: null, email: "", permissions: null };
 
     const { data: setting } = await supabaseAdmin
       .from("app_settings")
@@ -36,15 +57,16 @@ export const getMyProfile = createServerFn({ method: "GET" })
     const email = authUser?.user?.email ?? "";
 
     if (email && superAdmins.map((e) => e.toLowerCase()).includes(email.toLowerCase())) {
-      return { role: "admin" as const, operator: null, email };
+      return { role: "admin" as const, operator: null, email, permissions: null };
     }
 
     const operator = await getMyOperatorRow(userId);
     if (operator) {
-      return { role: "operator" as const, operator, email };
+      const permissions = await getMyPermissionsRow(operator.id);
+      return { role: "operator" as const, operator, email, permissions };
     }
 
-    return { role: "admin" as const, operator: null, email };
+    return { role: "admin" as const, operator: null, email, permissions: null };
   });
 
 export const listOperatorsWithAccess = createServerFn({ method: "GET" })

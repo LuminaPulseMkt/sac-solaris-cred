@@ -22,6 +22,7 @@ import { Megaphone, Pencil, Trash2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { listCampaigns, getCampaignDetail, renameCampaign, deleteCampaign } from "@/lib/campaigns/campaigns.functions";
 import { formatDateTime } from "@/lib/sac/format";
+import { useIsAdmin } from "@/contexts/profile-context";
 
 export const Route = createFileRoute("/_authenticated/campanhas")({
   head: () => ({
@@ -37,6 +38,7 @@ type Campaign = Awaited<ReturnType<typeof listCampaigns>>[number];
 
 function CampanhasPage() {
   const qc = useQueryClient();
+  const isAdmin = useIsAdmin();
   const listFn = useServerFn(listCampaigns);
   const renameFn = useServerFn(renameCampaign);
   const deleteFn = useServerFn(deleteCampaign);
@@ -154,6 +156,7 @@ function CampanhasPage() {
                         <Button size="sm" variant="ghost" title="Ver detalhes" onClick={() => setDetailFor(c)}>
                           <Eye className="h-3.5 w-3.5" />
                         </Button>
+                        {isAdmin && (
                         <Button
                           size="sm"
                           variant="ghost"
@@ -162,6 +165,8 @@ function CampanhasPage() {
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
+                        )}
+                        {isAdmin && (
                         <Button
                           size="sm"
                           variant="ghost"
@@ -171,6 +176,7 @@ function CampanhasPage() {
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

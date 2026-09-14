@@ -420,6 +420,53 @@ export type Database = {
           }
         ]
       }
+      operator_permissions: {
+        Row: {
+          operator_id: string
+          can_view_dashboard: boolean
+          can_view_conversas: boolean
+          can_view_alertas: boolean
+          can_view_relatorios: boolean
+          can_view_campanhas: boolean
+          can_delete_conversations: boolean
+          can_view_ai_analysis: boolean
+          can_send_report_email: boolean
+          updated_at: string
+        }
+        Insert: {
+          operator_id: string
+          can_view_dashboard?: boolean
+          can_view_conversas?: boolean
+          can_view_alertas?: boolean
+          can_view_relatorios?: boolean
+          can_view_campanhas?: boolean
+          can_delete_conversations?: boolean
+          can_view_ai_analysis?: boolean
+          can_send_report_email?: boolean
+          updated_at?: string
+        }
+        Update: {
+          operator_id?: string
+          can_view_dashboard?: boolean
+          can_view_conversas?: boolean
+          can_view_alertas?: boolean
+          can_view_relatorios?: boolean
+          can_view_campanhas?: boolean
+          can_delete_conversations?: boolean
+          can_view_ai_analysis?: boolean
+          can_send_report_email?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_permissions_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: true
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       operators: {
         Row: {
           channel: string

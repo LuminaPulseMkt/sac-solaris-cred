@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { requirePermission } from "@/lib/auth/require-permission";
 import { z } from "zod";
 
 export const testWhisperTranscription = createServerFn({ method: "POST" })
@@ -56,7 +57,7 @@ async function assertOwnsConversation(userId: string | undefined, conversationId
   if (!conv || conv.operator_id !== op.id) throw new Error("Acesso negado");
 }
 
-export const analyzeConversationFn = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
+export const analyzeConversationFn = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requirePermission("view_ai_analysis")])
   .inputValidator((input) => z.object({ conversationId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await assertOwnsConversation((context as { userId?: string }).userId, data.conversationId);
@@ -64,7 +65,7 @@ export const analyzeConversationFn = createServerFn({ method: "POST" }).middlewa
     return analyzeConversationById(data.conversationId);
   });
 
-export const getConversationAnalysis = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
+export const getConversationAnalysis = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth, requirePermission("view_ai_analysis")])
   .inputValidator((input) => z.object({ conversationId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await assertOwnsConversation((context as { userId?: string }).userId, data.conversationId);

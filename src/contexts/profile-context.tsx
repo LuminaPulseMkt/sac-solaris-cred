@@ -2,6 +2,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyProfile } from "@/lib/operators/operator-auth.functions";
+import type { OperatorPermissions } from "@/lib/permissions/permission-defaults";
 
 type Profile = {
   role: "admin" | "operator";
@@ -13,6 +14,8 @@ type Profile = {
     status?: string | null;
   } | null;
   email: string;
+  // null para admin (sem restrição); preenchido para operador.
+  permissions: OperatorPermissions | null;
 };
 
 const ProfileContext = createContext<Profile | null>(null);

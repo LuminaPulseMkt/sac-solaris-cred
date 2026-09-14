@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { requirePermission } from "@/lib/auth/require-permission";
 import { z } from "zod";
 import { getRequestHost } from "@tanstack/react-start/server";
 
@@ -162,24 +163,36 @@ export const listWebhookLogs = createServerFn({ method: "GET" }).middleware([req
     return logs ?? [];
   });
 
-export const deleteConversation = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
+export const deleteConversation = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requirePermission("delete_conversations")])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const myOpId = await resolveMyOperatorId((context as { userId?: string }).userId);
+    if (myOpId) {
+      const { data: conv } = await supabaseAdmin.from("conversations").select("operator_id").eq("id", data.id).maybeSingle();
+      if (!conv || conv.operator_id !== myOpId) throw new Error("Acesso negado");
+    }
     await supabaseAdmin.from("messages").delete().eq("conversation_id", data.id);
     const { error } = await supabaseAdmin.from("conversations").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
 
-export const deleteConversations = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
+export const deleteConversations = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requirePermission("delete_conversations")])
   .inputValidator((input) => z.object({ ids: z.array(z.string().uuid()).min(1) }).parse(input))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.from("messages").delete().in("conversation_id", data.ids);
-    const { error } = await supabaseAdmin.from("conversations").delete().in("id", data.ids);
+    const myOpId = await resolveMyOperatorId((context as { userId?: string }).userId);
+    let ids = data.ids;
+    if (myOpId) {
+      const { data: convs } = await supabaseAdmin.from("conversations").select("id, operator_id").in("id", ids);
+      ids = (convs ?? []).filter((c) => c.operator_id === myOpId).map((c) => c.id);
+      if (ids.length === 0) throw new Error("Acesso negado");
+    }
+    await supabaseAdmin.from("messages").delete().in("conversation_id", ids);
+    const { error } = await supabaseAdmin.from("conversations").delete().in("id", ids);
     if (error) throw new Error(error.message);
-    return { ok: true, count: data.ids.length };
+    return { ok: true, count: ids.length };
   });
 
 const conversationIdSchema = z.object({ id: z.string().uuid() });
