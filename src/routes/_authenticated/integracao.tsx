@@ -42,8 +42,9 @@ import {
 import { copyToClipboard } from "@/lib/clipboard";
 import { listSetores, createSetor, updateSetor, deleteSetor, assignOperatorSetor } from "@/lib/setores/setores.functions";
 import { listOperatorsPermissions, updateOperatorPermissions } from "@/lib/permissions/permissions.functions";
-import { PAGE_PERMISSIONS, ACTION_PERMISSIONS, PERMISSION_COLUMN, type OperatorPermissions } from "@/lib/permissions/permission-defaults";
+import { PAGE_PERMISSIONS, ACTION_PERMISSIONS, MANAGEMENT_PERMISSIONS, PERMISSION_COLUMN, type OperatorPermissions } from "@/lib/permissions/permission-defaults";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useProfile, useIsAdmin } from "@/contexts/profile-context";
 
 type TestResult = {
   ok: boolean;
@@ -120,16 +121,23 @@ async function runWebhookTest(op: Operator): Promise<TestResult> {
 
 function IntegracaoPage() {
   const qc = useQueryClient();
+  const profile = useProfile();
+  const isAdmin = useIsAdmin();
+  const canManageOperators = isAdmin || profile?.permissions?.can_manage_operators === true;
+  const canManageSetores = isAdmin || profile?.permissions?.can_manage_setores === true;
+  const canManageAccess = isAdmin || profile?.permissions?.can_manage_access === true;
+
   const listFn = useServerFn(listOperators);
   const logsFn = useServerFn(listWebhookLogs);
   const fixFn = useServerFn(fixWebhookUrls);
 
   const listSetoresFn = useServerFn(listSetores);
-  const operators = useQuery({ queryKey: ["operators"], queryFn: () => listFn() });
-  const logs = useQuery({ queryKey: ["webhook-logs"], queryFn: () => logsFn({ data: {} }) });
+  const operators = useQuery({ queryKey: ["operators"], queryFn: () => listFn(), enabled: canManageOperators });
+  const logs = useQuery({ queryKey: ["webhook-logs"], queryFn: () => logsFn({ data: {} }), enabled: isAdmin });
   const setores = useQuery({ queryKey: ["setores"], queryFn: () => listSetoresFn() });
 
   useEffect(() => {
+    if (!isAdmin) return;
     fixFn()
       .then((res) => {
         if (res?.updated && res.updated > 0) {
@@ -137,10 +145,28 @@ function IntegracaoPage() {
         }
       })
       .catch(() => {});
-  }, [fixFn, qc]);
+  }, [fixFn, qc, isAdmin]);
 
-  const [tab, setTab] = useState("list");
+  const firstAvailableTab = canManageOperators ? "list" : canManageSetores ? "setores" : canManageAccess ? "instances" : "list";
+  const [tab, setTab] = useState(firstAvailableTab);
   const [selectedPayload, setSelectedPayload] = useState<unknown>(null);
+
+  // Corrige a aba selecionada se, quando o perfil carregar, a atual não for
+  // mais permitida pra esse usuário (evita ficar numa aba vazia/escondida).
+  useEffect(() => {
+    const allowed: Record<string, boolean> = {
+      list: canManageOperators,
+      new: canManageOperators,
+      setores: canManageSetores,
+      permissoes: isAdmin,
+      instances: canManageAccess,
+      logs: isAdmin,
+    };
+    if (allowed[tab] === false) {
+      setTab(canManageOperators ? "list" : canManageSetores ? "setores" : canManageAccess ? "instances" : "list");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, canManageOperators, canManageSetores, canManageAccess]);
 
   function refresh() {
     qc.invalidateQueries({ queryKey: ["operators"] });
@@ -157,14 +183,15 @@ function IntegracaoPage() {
       <main className="flex-1 p-4 md:p-6">
         <Tabs value={tab} onValueChange={setTab} className="space-y-4">
           <TabsList>
-            <TabsTrigger value="list">Operadores</TabsTrigger>
-            <TabsTrigger value="new">Cadastrar operador</TabsTrigger>
-            <TabsTrigger value="setores">Setores</TabsTrigger>
-            <TabsTrigger value="permissoes">Permissões</TabsTrigger>
-            <TabsTrigger value="instances">Instâncias</TabsTrigger>
-            <TabsTrigger value="logs">Logs de recebimento</TabsTrigger>
+            {canManageOperators && <TabsTrigger value="list">Operadores</TabsTrigger>}
+            {canManageOperators && <TabsTrigger value="new">Cadastrar operador</TabsTrigger>}
+            {canManageSetores && <TabsTrigger value="setores">Setores</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="permissoes">Permissões</TabsTrigger>}
+            {canManageAccess && <TabsTrigger value="instances">Instâncias</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="logs">Logs de recebimento</TabsTrigger>}
           </TabsList>
 
+          {canManageOperators && (
           <TabsContent value="list" className="space-y-3">
             <OperatorsList
               operators={operators.data ?? []}
@@ -173,15 +200,21 @@ function IntegracaoPage() {
               onChange={refresh}
             />
           </TabsContent>
+          )}
 
+          {canManageSetores && (
           <TabsContent value="setores">
             <SetoresTab setores={setores.data ?? []} loading={setores.isLoading} onChange={refresh} />
           </TabsContent>
+          )}
 
+          {isAdmin && (
           <TabsContent value="permissoes">
             <PermissoesTab />
           </TabsContent>
+          )}
 
+          {canManageOperators && (
           <TabsContent value="new">
             <NewOperatorForm
               onCreated={() => {
@@ -190,14 +223,19 @@ function IntegracaoPage() {
               }}
             />
           </TabsContent>
+          )}
 
+          {canManageAccess && (
           <TabsContent value="instances">
             <InstancesAccessPanel />
           </TabsContent>
+          )}
 
+          {isAdmin && (
           <TabsContent value="logs">
             <LogsTable logs={logs.data ?? []} loading={logs.isLoading} onView={setSelectedPayload} />
           </TabsContent>
+          )}
         </Tabs>
       </main>
 
@@ -227,6 +265,7 @@ function OperatorsList({
   loading: boolean;
   onChange: () => void;
 }) {
+  const isAdmin = useIsAdmin();
   const updateFn = useServerFn(updateOperator);
   const regenFn = useServerFn(regenerateToken);
   const deleteFn = useServerFn(deleteOperator);
@@ -346,6 +385,7 @@ function OperatorsList({
                       >
                         <FlaskConical className="h-3.5 w-3.5" />
                       </Button>
+                      {isAdmin && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -359,6 +399,7 @@ function OperatorsList({
                       >
                         <RefreshCw className="h-3.5 w-3.5" />
                       </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="ghost"
@@ -608,7 +649,11 @@ type OperatorPermissionRow = {
   permissions: OperatorPermissions;
 };
 
-const ALL_PERMISSION_ITEMS = [...PAGE_PERMISSIONS, ...ACTION_PERMISSIONS];
+const ALL_PERMISSION_ITEMS = [
+  ...PAGE_PERMISSIONS.map((p) => ({ ...p, sensitive: false })),
+  ...ACTION_PERMISSIONS.map((p) => ({ ...p, sensitive: false })),
+  ...MANAGEMENT_PERMISSIONS.map((p) => ({ ...p, sensitive: true })),
+];
 
 function PermissoesTab() {
   const qc = useQueryClient();
@@ -659,6 +704,11 @@ function PermissoesTab() {
           Escolha o que cada operador pode ver e fazer dentro do SAC. Contas de admin (sem instância
           vinculada) sempre têm acesso total, independente do que estiver marcado aqui.
         </p>
+        <p className="mt-2 text-warning">
+          As colunas em destaque (Gerenciar operadores/setores/acesso) valem para TODOS os operadores,
+          não só o próprio — equivalem a tornar essa pessoa um admin delegado naquela área. Conceda com
+          cuidado.
+        </p>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-border bg-card">
@@ -667,7 +717,11 @@ function PermissoesTab() {
             <TableRow>
               <TableHead className="min-w-[160px]">Operador</TableHead>
               {ALL_PERMISSION_ITEMS.map((p) => (
-                <TableHead key={p.key} className="whitespace-nowrap text-center" title={p.hint}>
+                <TableHead
+                  key={p.key}
+                  className={`whitespace-nowrap text-center ${p.sensitive ? "bg-warning/10 text-warning" : ""}`}
+                  title={p.hint}
+                >
                   {p.label}
                 </TableHead>
               ))}
@@ -687,7 +741,7 @@ function PermissoesTab() {
                   const column = PERMISSION_COLUMN[p.key];
                   const key = `${op.id}:${column}`;
                   return (
-                    <TableCell key={p.key} className="text-center">
+                    <TableCell key={p.key} className={`text-center ${p.sensitive ? "bg-warning/5" : ""}`}>
                       <Checkbox
                         checked={op.permissions[column]}
                         disabled={savingKey === key}

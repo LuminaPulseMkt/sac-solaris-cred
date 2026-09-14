@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAdmin } from "@/lib/auth/require-admin";
+import { requirePermission } from "@/lib/auth/require-permission";
 import { z } from "zod";
 
 export const listSetores = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async () => {
@@ -23,7 +23,7 @@ export const listSetores = createServerFn({ method: "GET" }).middleware([require
 
 const createSchema = z.object({ name: z.string().min(1).max(60) });
 
-export const createSetor = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
+export const createSetor = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requirePermission("manage_setores")])
   .inputValidator((input) => createSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -38,7 +38,7 @@ export const createSetor = createServerFn({ method: "POST" }).middleware([requir
 
 const updateSchema = z.object({ id: z.string().uuid(), name: z.string().min(1).max(60) });
 
-export const updateSetor = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
+export const updateSetor = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requirePermission("manage_setores")])
   .inputValidator((input) => updateSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -52,7 +52,7 @@ export const updateSetor = createServerFn({ method: "POST" }).middleware([requir
 
 const deleteSchema = z.object({ id: z.string().uuid() });
 
-export const deleteSetor = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
+export const deleteSetor = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requirePermission("manage_setores")])
   .inputValidator((input) => deleteSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -63,7 +63,7 @@ export const deleteSetor = createServerFn({ method: "POST" }).middleware([requir
 
 const assignSchema = z.object({ operator_id: z.string().uuid(), setor_id: z.string().uuid().nullable() });
 
-export const assignOperatorSetor = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
+export const assignOperatorSetor = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requirePermission("manage_operators")])
   .inputValidator((input) => assignSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

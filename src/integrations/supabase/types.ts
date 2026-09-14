@@ -431,6 +431,9 @@ export type Database = {
           can_delete_conversations: boolean
           can_view_ai_analysis: boolean
           can_send_report_email: boolean
+          can_manage_operators: boolean
+          can_manage_setores: boolean
+          can_manage_access: boolean
           updated_at: string
         }
         Insert: {
@@ -443,6 +446,9 @@ export type Database = {
           can_delete_conversations?: boolean
           can_view_ai_analysis?: boolean
           can_send_report_email?: boolean
+          can_manage_operators?: boolean
+          can_manage_setores?: boolean
+          can_manage_access?: boolean
           updated_at?: string
         }
         Update: {
@@ -455,6 +461,9 @@ export type Database = {
           can_delete_conversations?: boolean
           can_view_ai_analysis?: boolean
           can_send_report_email?: boolean
+          can_manage_operators?: boolean
+          can_manage_setores?: boolean
+          can_manage_access?: boolean
           updated_at?: string
         }
         Relationships: [

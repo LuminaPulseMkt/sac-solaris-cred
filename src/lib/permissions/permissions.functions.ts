@@ -15,6 +15,9 @@ function toOperatorPermissions(row: Record<string, unknown> | null | undefined):
     can_delete_conversations: Boolean(row.can_delete_conversations),
     can_view_ai_analysis: Boolean(row.can_view_ai_analysis),
     can_send_report_email: Boolean(row.can_send_report_email),
+    can_manage_operators: Boolean(row.can_manage_operators),
+    can_manage_setores: Boolean(row.can_manage_setores),
+    can_manage_access: Boolean(row.can_manage_access),
   };
 }
 
@@ -74,6 +77,9 @@ const updateSchema = z.object({
   can_delete_conversations: z.boolean().optional(),
   can_view_ai_analysis: z.boolean().optional(),
   can_send_report_email: z.boolean().optional(),
+  can_manage_operators: z.boolean().optional(),
+  can_manage_setores: z.boolean().optional(),
+  can_manage_access: z.boolean().optional(),
 });
 
 export const updateOperatorPermissions = createServerFn({ method: "POST" })

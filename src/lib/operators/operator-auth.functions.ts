@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAdmin } from "@/lib/auth/require-admin";
+import { requirePermission } from "@/lib/auth/require-permission";
 import { z } from "zod";
 import { PERMISSION_DEFAULTS, type OperatorPermissions } from "@/lib/permissions/permission-defaults";
 
@@ -21,6 +21,9 @@ async function getMyPermissionsRow(operatorId: string): Promise<OperatorPermissi
     can_delete_conversations: Boolean(data.can_delete_conversations),
     can_view_ai_analysis: Boolean(data.can_view_ai_analysis),
     can_send_report_email: Boolean(data.can_send_report_email),
+    can_manage_operators: Boolean(data.can_manage_operators),
+    can_manage_setores: Boolean(data.can_manage_setores),
+    can_manage_access: Boolean(data.can_manage_access),
   };
 }
 
@@ -70,7 +73,7 @@ export const getMyProfile = createServerFn({ method: "GET" })
   });
 
 export const listOperatorsWithAccess = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth, requireAdmin])
+  .middleware([requireSupabaseAuth, requirePermission("manage_access")])
   .handler(async () => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
@@ -100,7 +103,7 @@ function generateStrongPassword(): string {
 }
 
 export const createOperatorUser = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth, requireAdmin])
+  .middleware([requireSupabaseAuth, requirePermission("manage_access")])
   .inputValidator((input) =>
     z
       .object({
@@ -184,7 +187,7 @@ export const createOperatorUser = createServerFn({ method: "POST" })
 
 
 export const updateOperatorPassword = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth, requireAdmin])
+  .middleware([requireSupabaseAuth, requirePermission("manage_access")])
   .inputValidator((input) =>
     z
       .object({
@@ -210,7 +213,7 @@ export const updateOperatorPassword = createServerFn({ method: "POST" })
   });
 
 export const revokeOperatorAccess = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth, requireAdmin])
+  .middleware([requireSupabaseAuth, requirePermission("manage_access")])
   .inputValidator((input) => z.object({ operator_id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -238,7 +241,7 @@ const createCollaboratorSchema = z.object({
   email: z.string().email(),
 });
 
-export const createCollaborator = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
+export const createCollaborator = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requirePermission("manage_operators")])
   .inputValidator((input) => createCollaboratorSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

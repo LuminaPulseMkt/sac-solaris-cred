@@ -53,7 +53,7 @@ export const fixWebhookUrls = createServerFn({ method: "POST" }).middleware([req
   return { updated };
 });
 
-export const listOperators = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth, requireAdmin]).handler(async () => {
+export const listOperators = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth, requirePermission("manage_operators")]).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin
     .from("operators")
@@ -71,7 +71,7 @@ const createSchema = z.object({
   status: z.enum(["pending", "active", "inactive"]).default("pending"),
 });
 
-export const createOperator = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
+export const createOperator = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requirePermission("manage_operators")])
   .inputValidator((input) => createSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -101,7 +101,7 @@ const updateSchema = z.object({
   status: z.enum(["pending", "active", "inactive", "error"]).optional(),
 });
 
-export const updateOperator = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
+export const updateOperator = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requirePermission("manage_operators")])
   .inputValidator((input) => updateSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -132,7 +132,7 @@ export const regenerateToken = createServerFn({ method: "POST" }).middleware([re
     return updated;
   });
 
-export const deleteOperator = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
+export const deleteOperator = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requirePermission("manage_operators")])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

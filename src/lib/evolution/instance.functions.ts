@@ -24,12 +24,25 @@ async function resolveInstanceName(userId: string, instanceName?: string): Promi
 
   const { data: op } = await supabaseAdmin
     .from("operators")
-    .select("instance_name")
+    .select("id, instance_name")
     .eq("user_id", userId)
     .maybeSingle();
 
-  // Operador: sempre a instância vinculada (ignora parâmetro)
-  if (op?.instance_name) return op.instance_name;
+  if (op?.instance_name) {
+    // Operador comum: sempre a própria instância, ignora o parâmetro. Só
+    // abre exceção quando outra instância foi pedida E esse operador tem a
+    // permissão "gerenciar acesso" (aba Instâncias em Integração) — nesse
+    // caso ele age como um admin delegado sobre a instância de outro operador.
+    if (instanceName && instanceName !== op.instance_name) {
+      const { data: perm } = await supabaseAdmin
+        .from("operator_permissions")
+        .select("can_manage_access")
+        .eq("operator_id", op.id)
+        .maybeSingle();
+      if (perm?.can_manage_access) return instanceName;
+    }
+    return op.instance_name;
+  }
 
   if (instanceName) return instanceName;
 

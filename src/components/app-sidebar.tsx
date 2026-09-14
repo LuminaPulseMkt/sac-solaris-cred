@@ -124,6 +124,13 @@ export function AppSidebar() {
     ? alertsReports.filter((i) => i.url !== "/configuracoes#scoring" && operatorCanSee(i.url))
     : alertsReports;
 
+  // "Integração / Webhook" fica visível pro operador se ele recebeu QUALQUER
+  // permissão de gestão (operadores, setores ou acesso/login) — é lá que
+  // essas abas moram. "Configurações" continua exclusivo de admin.
+  const canSeeIntegracao =
+    !isOperator ||
+    Boolean(permissions?.can_manage_operators || permissions?.can_manage_setores || permissions?.can_manage_access);
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="px-3 py-4 space-y-3">
@@ -168,11 +175,13 @@ export function AppSidebar() {
             <SidebarMenu>{visibleAlertsReports.map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        {!isOperator && (
+        {canSeeIntegracao && (
           <SidebarGroup>
             <SidebarGroupLabel>Integração</SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>{integration.map(renderItem)}</SidebarMenu>
+              <SidebarMenu>
+                {integration.filter((i) => !isOperator || i.url === "/integracao").map(renderItem)}
+              </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
