@@ -287,6 +287,7 @@ function DashboardPage() {
           <InstanceStatusCard
             instanceName={profile.operator.instance_name}
             operatorName={profile.operator.name}
+            autoConnect
           />
         )}
 

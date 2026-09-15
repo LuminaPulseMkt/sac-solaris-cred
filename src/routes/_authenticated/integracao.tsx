@@ -991,6 +991,7 @@ Senha: ${created.password}`);
             <InstanceStatusCard
               instanceName={created.operator.instance_name}
               operatorName={created.operator.name}
+              autoConnect
             />
           </>
         )}

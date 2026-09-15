@@ -15,9 +15,15 @@ interface InstanceStatusCardProps {
   instanceName?: string;
   operatorName?: string;
   compact?: boolean;
+  // Gera o QR sozinho assim que descobre que a instância não está
+  // conectada, sem esperar clique em "Gerar QR code para conectar".
+  // Só usar em telas de onboarding de UM operador (ex.: painel de sucesso
+  // do "Cadastrar operador") — nunca numa lista com vários operadores de
+  // uma vez, senão dispara geração de QR pra todo mundo ao abrir a tela.
+  autoConnect?: boolean;
 }
 
-export function InstanceStatusCard({ instanceName, operatorName, compact = false }: InstanceStatusCardProps) {
+export function InstanceStatusCard({ instanceName, operatorName, compact = false, autoConnect = false }: InstanceStatusCardProps) {
   const qc = useQueryClient();
   const statusFn = useServerFn(getInstanceStatus);
   const qrFn = useServerFn(getInstanceQrCode);
@@ -25,6 +31,7 @@ export function InstanceStatusCard({ instanceName, operatorName, compact = false
   const restartFn = useServerFn(restartInstance);
 
   const [showQr, setShowQr] = useState(false);
+  const [autoTried, setAutoTried] = useState(false);
 
   const { data: status, isLoading } = useQuery({
     queryKey: ["instance-status", instanceName ?? "me"],
@@ -46,6 +53,16 @@ export function InstanceStatusCard({ instanceName, operatorName, compact = false
   useEffect(() => {
     if (status?.connected) setShowQr(false);
   }, [status?.connected]);
+
+  // Onboarding: assim que sabemos que a instância recém-criada ainda não
+  // está conectada, já gera o QR automaticamente em vez de exigir um clique
+  // extra — é exatamente esse clique que vinha sendo esquecido/pulado e
+  // deixava operadores novos sem nunca chegar a ver um QR pra escanear.
+  useEffect(() => {
+    if (!autoConnect || compact || autoTried || !status || status.connected) return;
+    setAutoTried(true);
+    generateQr();
+  }, [autoConnect, compact, autoTried, status, generateQr]);
 
   const handleLogout = async () => {
     if (!confirm(`Desconectar a instância ${status?.instance}?`)) return;
