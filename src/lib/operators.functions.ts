@@ -65,7 +65,7 @@ export const listOperators = createServerFn({ method: "GET" }).middleware([requi
 
 const createSchema = z.object({
   name: z.string().min(1),
-  instance_name: z.string().min(1),
+  instance_name: z.string().trim().min(1),
   channel: z.string().default("whatsapp"),
   description: z.string().optional().nullable(),
   status: z.enum(["pending", "active", "inactive"]).default("pending"),
@@ -95,7 +95,7 @@ export const createOperator = createServerFn({ method: "POST" }).middleware([req
 const updateSchema = z.object({
   id: z.string().uuid(),
   name: z.string().optional(),
-  instance_name: z.string().optional(),
+  instance_name: z.string().trim().min(1).optional(),
   channel: z.string().optional(),
   description: z.string().nullable().optional(),
   status: z.enum(["pending", "active", "inactive", "error"]).optional(),

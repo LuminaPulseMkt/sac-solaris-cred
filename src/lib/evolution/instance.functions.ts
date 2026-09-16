@@ -57,7 +57,7 @@ export const getInstanceStatus = createServerFn({ method: "GET" })
     const { url, apiKey } = await getEvolutionConfig();
     const instance = await resolveInstanceName(userId, data.instance_name);
 
-    const res = await fetch(`${url}/instance/connectionState/${instance}`, {
+    const res = await fetch(`${url}/instance/connectionState/${encodeURIComponent(instance)}`, {
       headers: { apikey: apiKey },
     });
 
@@ -79,7 +79,7 @@ export const getInstanceQrCode = createServerFn({ method: "POST" })
     const { url, apiKey } = await getEvolutionConfig();
     const instance = await resolveInstanceName(userId, data.instance_name);
 
-    const res = await fetch(`${url}/instance/connect/${instance}`, {
+    const res = await fetch(`${url}/instance/connect/${encodeURIComponent(instance)}`, {
       method: "GET",
       headers: { apikey: apiKey },
     });
@@ -104,7 +104,7 @@ export const logoutInstance = createServerFn({ method: "POST" })
     const { url, apiKey } = await getEvolutionConfig();
     const instance = await resolveInstanceName(userId, data.instance_name);
 
-    await fetch(`${url}/instance/logout/${instance}`, {
+    await fetch(`${url}/instance/logout/${encodeURIComponent(instance)}`, {
       method: "DELETE",
       headers: { apikey: apiKey },
     });
@@ -120,7 +120,7 @@ export const restartInstance = createServerFn({ method: "POST" })
     const { url, apiKey } = await getEvolutionConfig();
     const instance = await resolveInstanceName(userId, data.instance_name);
 
-    await fetch(`${url}/instance/restart/${instance}`, {
+    await fetch(`${url}/instance/restart/${encodeURIComponent(instance)}`, {
       method: "POST",
       headers: { apikey: apiKey },
     });

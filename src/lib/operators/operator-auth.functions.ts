@@ -234,7 +234,9 @@ export const revokeOperatorAccess = createServerFn({ method: "POST" })
 
 const createCollaboratorSchema = z.object({
   name: z.string().min(1),
-  instance_name: z.string().min(1),
+  // trim primeiro: espaço perdido no nome da instância já causou instância
+  // "fantasma" (nome gravado != nome realmente usado nas chamadas HTTP).
+  instance_name: z.string().trim().min(1),
   channel: z.string().default("whatsapp"),
   description: z.string().optional().nullable(),
   setor_id: z.string().uuid().nullable().optional(),
