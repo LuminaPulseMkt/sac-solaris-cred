@@ -1,13 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertCircle, ArrowLeft, Image as ImageIcon, Mic, FileText, MapPin, Sticker, Video } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRightLeft, Image as ImageIcon, Mic, FileText, MapPin, Sticker, Video } from "lucide-react";
+import { toast } from "sonner";
 import { AppHeader } from "@/components/app-header";
 import { ScoreBar } from "@/components/score-bar";
 import { AiAnalysisPanel } from "@/components/ai-analysis-panel";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useProfile, useIsAdmin } from "@/contexts/profile-context";
 import { supabase } from "@/integrations/supabase/client";
-import { getConversationDetail, listConversationMessages } from "@/lib/operators.functions";
+import { getConversationDetail, listConversationMessages, listOperatorStats, transferConversation } from "@/lib/operators.functions";
 import { formatTime, formatDateTime, formatDuration } from "@/lib/sac/format";
 
 export const Route = createFileRoute("/_authenticated/conversas/$id")({
@@ -65,9 +70,41 @@ function rtTone(seconds: number): string {
 function ConversationChatPage() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
+  const profile = useProfile();
+  const isAdmin = useIsAdmin();
+  const canTransfer = isAdmin || profile?.permissions?.can_manage_operators === true;
   const fetchConversation = useServerFn(getConversationDetail);
   const fetchMessages = useServerFn(listConversationMessages);
+  const statsFn = useServerFn(listOperatorStats);
+  const transferFn = useServerFn(transferConversation);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferTarget, setTransferTarget] = useState("");
+  const [transferring, setTransferring] = useState(false);
+
+  const { data: opStats = [] } = useQuery({
+    queryKey: ["operator-stats"],
+    queryFn: () => statsFn(),
+    enabled: canTransfer,
+  });
+
+  async function handleTransfer() {
+    if (!transferTarget) return toast.error("Escolha o operador de destino");
+    setTransferring(true);
+    try {
+      await transferFn({ data: { conversation_id: id, new_operator_id: transferTarget } });
+      toast.success("Conversa transferida");
+      setTransferOpen(false);
+      setTransferTarget("");
+      qc.invalidateQueries({ queryKey: ["conversation", id] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao transferir");
+    } finally {
+      setTransferring(false);
+    }
+  }
 
   const conv = useQuery({
     queryKey: ["conversation", id],
@@ -126,13 +163,20 @@ function ConversationChatPage() {
         title={conversation?.lead_name ?? conversation?.lead_phone ?? "Conversa"}
         subtitle={conversation ? `${conversation.lead_phone} · ${conversation.instance_name}` : ""}
         actions={
-          <Link
-            to="/conversas"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft size={16} />
-            Voltar
-          </Link>
+          <div className="flex items-center gap-3">
+            {canTransfer && (
+              <Button size="sm" variant="outline" onClick={() => setTransferOpen(true)}>
+                <ArrowRightLeft className="h-3.5 w-3.5" /> Transferir
+              </Button>
+            )}
+            <Link
+              to="/conversas"
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft size={16} />
+              Voltar
+            </Link>
+          </div>
         }
       />
       <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -224,6 +268,29 @@ function ConversationChatPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Transferir conversa</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              A conversa passa a ser exibida como do novo operador em Conversas e Relatórios. Novas mensagens
+              WhatsApp continuam chegando pela instância original — isso não muda com a transferência.
+            </p>
+            <Select value={transferTarget} onValueChange={setTransferTarget}>
+              <SelectTrigger><SelectValue placeholder="Escolha o operador de destino" /></SelectTrigger>
+              <SelectContent>
+                {opStats.filter((o) => o.id !== conversation?.operator_id).map((o) => (
+                  <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button className="w-full" onClick={handleTransfer} disabled={transferring}>
+              {transferring ? "Transferindo…" : "Confirmar transferência"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

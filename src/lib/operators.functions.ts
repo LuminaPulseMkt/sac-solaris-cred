@@ -131,6 +131,24 @@ export const assignOperatorManager = createServerFn({ method: "POST" }).middlewa
     return { ok: true };
   });
 
+const transferSchema = z.object({ conversation_id: z.string().uuid(), new_operator_id: z.string().uuid() });
+
+// Transferência pontual: reatribui a conversa a outro operador pra fins de
+// relatório/posse na tela de Conversas. NÃO redireciona mensagens novas —
+// essas continuam chegando pela instância WhatsApp original (não tem como
+// mudar isso, é uma característica do WhatsApp, não do SAC).
+export const transferConversation = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requirePermission("manage_operators")])
+  .inputValidator((input) => transferSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("conversations")
+      .update({ operator_id: data.new_operator_id })
+      .eq("id", data.conversation_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const regenerateToken = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
