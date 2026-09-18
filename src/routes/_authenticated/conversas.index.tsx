@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { listConversations, deleteConversation, deleteConversations } from "@/lib/operators.functions";
+import { listConversations, listOperatorStats, deleteConversation, deleteConversations } from "@/lib/operators.functions";
 import { listSetores } from "@/lib/setores/setores.functions";
 import { formatDuration, formatDateTime } from "@/lib/sac/format";
 
@@ -47,6 +47,7 @@ function ConversasPage() {
   const deleteOneFn = useServerFn(deleteConversation);
   const deleteManyFn = useServerFn(deleteConversations);
   const setoresFn = useServerFn(listSetores);
+  const statsFn = useServerFn(listOperatorStats);
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["conversations"],
@@ -54,6 +55,15 @@ function ConversasPage() {
     refetchInterval: 15_000,
   });
   const { data: setoresList = [] } = useQuery({ queryKey: ["setores"], queryFn: () => setoresFn() });
+  const { data: opStats = [] } = useQuery({ queryKey: ["operator-stats"], queryFn: () => statsFn() });
+
+  const managers = useMemo(() => {
+    const byId = new Map(opStats.map((o) => [o.id, o]));
+    const managerIds = new Set(
+      opStats.map((o) => (o as unknown as { manager_id?: string | null }).manager_id).filter((v): v is string => !!v),
+    );
+    return [...managerIds].map((id) => byId.get(id)).filter((o): o is NonNullable<typeof o> => !!o);
+  }, [opStats]);
 
   useEffect(() => {
     const channel = supabase
@@ -72,6 +82,7 @@ function ConversasPage() {
   }, [qc]);
   const [search, setSearch] = useState("");
   const [setor, setSetor] = useState("all");
+  const [gerente, setGerente] = useState("all");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [toDeleteOne, setToDeleteOne] = useState<Conv | null>(null);
@@ -79,8 +90,9 @@ function ConversasPage() {
 
   const filtered = useMemo(() => {
     return rows.filter((c) => {
-      const opRow = c.operators as { name?: string; setor_id?: string | null } | null;
+      const opRow = c.operators as { name?: string; setor_id?: string | null; manager_id?: string | null } | null;
       if (setor !== "all" && (opRow?.setor_id ?? null) !== setor) return false;
+      if (gerente !== "all" && c.operator_id !== gerente && (opRow?.manager_id ?? null) !== gerente) return false;
       if (!search) return true;
       const q = search.toLowerCase();
       const op = opRow?.name?.toLowerCase() ?? "";
@@ -88,7 +100,7 @@ function ConversasPage() {
         c.lead_phone.toLowerCase().includes(q) ||
         op.includes(q);
     });
-  }, [rows, search, setor]);
+  }, [rows, search, setor, gerente]);
 
   const recurringPhones = useMemo(() => {
     const count: Record<string, number> = {};
@@ -165,6 +177,15 @@ function ConversasPage() {
               <SelectContent>
                 <SelectItem value="all">Todos os setores</SelectItem>
                 {setoresList.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          {managers.length > 0 && (
+            <Select value={gerente} onValueChange={(v) => { setGerente(v); setPage(1); }}>
+              <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os gerentes</SelectItem>
+                {managers.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
               </SelectContent>
             </Select>
           )}

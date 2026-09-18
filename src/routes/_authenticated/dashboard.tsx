@@ -87,14 +87,34 @@ function DashboardPage() {
   const { data: opStats = [] } = useQuery({ queryKey: ["operator-stats"], queryFn: () => statsFn(), refetchInterval: 30_000 });
   const { data: setoresList = [] } = useQuery({ queryKey: ["setores"], queryFn: () => setoresFn() });
   const [setor, setSetor] = useState("all");
+  const [gerente, setGerente] = useState("all");
+
+  const managers = useMemo(() => {
+    const byId = new Map(opStats.map((o) => [o.id, o]));
+    const managerIds = new Set(
+      opStats.map((o) => (o as unknown as { manager_id?: string | null }).manager_id).filter((v): v is string => !!v),
+    );
+    return [...managerIds].map((id) => byId.get(id)).filter((o): o is NonNullable<typeof o> => !!o);
+  }, [opStats]);
 
   const rows = useMemo(() => {
-    if (setor === "all") return rowsRaw;
-    const idsInSetor = new Set(
-      opStats.filter((s) => (s as unknown as { setor_id?: string | null }).setor_id === setor).map((s) => s.id),
-    );
-    return rowsRaw.filter((c) => idsInSetor.has((c as { operator_id?: string | null }).operator_id ?? ""));
-  }, [rowsRaw, opStats, setor]);
+    let list = rowsRaw;
+    if (setor !== "all") {
+      const idsInSetor = new Set(
+        opStats.filter((s) => (s as unknown as { setor_id?: string | null }).setor_id === setor).map((s) => s.id),
+      );
+      list = list.filter((c) => idsInSetor.has((c as { operator_id?: string | null }).operator_id ?? ""));
+    }
+    if (gerente !== "all") {
+      const idsForManager = new Set(
+        opStats
+          .filter((s) => s.id === gerente || (s as unknown as { manager_id?: string | null }).manager_id === gerente)
+          .map((s) => s.id),
+      );
+      list = list.filter((c) => idsForManager.has((c as { operator_id?: string | null }).operator_id ?? ""));
+    }
+    return list;
+  }, [rowsRaw, opStats, setor, gerente]);
 
 
   // ── Particionamento único: hoje + buckets de 7 dias (single pass) ───────
@@ -272,6 +292,15 @@ function DashboardPage() {
                 <SelectContent>
                   <SelectItem value="all">Todos os setores</SelectItem>
                   {setoresList.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            {managers.length > 0 && (
+              <Select value={gerente} onValueChange={setGerente}>
+                <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os gerentes</SelectItem>
+                  {managers.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             )}

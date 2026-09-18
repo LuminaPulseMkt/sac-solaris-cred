@@ -506,6 +506,7 @@ export type Database = {
           id: string
           instance_name: string
           last_received_at: string | null
+          manager_id: string | null
           messages_today: number
           name: string
           setor_id: string | null
@@ -523,6 +524,7 @@ export type Database = {
           id?: string
           instance_name: string
           last_received_at?: string | null
+          manager_id?: string | null
           messages_today?: number
           name: string
           setor_id?: string | null
@@ -540,6 +542,7 @@ export type Database = {
           id?: string
           instance_name?: string
           last_received_at?: string | null
+          manager_id?: string | null
           messages_today?: number
           name?: string
           setor_id?: string | null
@@ -555,6 +558,13 @@ export type Database = {
             columns: ["setor_id"]
             isOneToOne: false
             referencedRelation: "setores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operators_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
             referencedColumns: ["id"]
           }
         ]

@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BellRing, Clock, TrendingDown, Users, CheckCircle2, WifiOff, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useSettingsStore } from "@/stores/settings";
-import { listConversations, listWebhookHealth, regenerateToken } from "@/lib/operators.functions";
+import { listConversations, listWebhookHealth, listOperatorStats, regenerateToken } from "@/lib/operators.functions";
 import { listSetores } from "@/lib/setores/setores.functions";
 import { listAnalyses } from "@/lib/ai/ai.functions";
 import { formatDuration, formatDateTime } from "@/lib/sac/format";
@@ -97,7 +97,9 @@ function AlertasPage() {
   const healthFn = useServerFn(listWebhookHealth);
   const regenFn = useServerFn(regenerateToken);
   const setoresFn = useServerFn(listSetores);
+  const statsFn = useServerFn(listOperatorStats);
   const [setor, setSetor] = useState("all");
+  const [gerente, setGerente] = useState("all");
 
   const { data: convsRaw = [] } = useQuery({
     queryKey: ["conversations"],
@@ -105,13 +107,22 @@ function AlertasPage() {
     refetchInterval: 30_000,
   });
   const { data: setoresList = [] } = useQuery({ queryKey: ["setores"], queryFn: () => setoresFn() });
+  const { data: opStats = [] } = useQuery({ queryKey: ["operator-stats"], queryFn: () => statsFn() });
+  const managers = useMemo(() => {
+    const byId = new Map(opStats.map((o) => [o.id, o]));
+    const managerIds = new Set(
+      opStats.map((o) => (o as unknown as { manager_id?: string | null }).manager_id).filter((v): v is string => !!v),
+    );
+    return [...managerIds].map((id) => byId.get(id)).filter((o): o is NonNullable<typeof o> => !!o);
+  }, [opStats]);
   const convs = useMemo(() => {
-    if (setor === "all") return convsRaw;
     return convsRaw.filter((c) => {
-      const opRow = c.operators as { setor_id?: string | null } | null;
-      return (opRow?.setor_id ?? null) === setor;
+      const opRow = c.operators as { setor_id?: string | null; manager_id?: string | null } | null;
+      if (setor !== "all" && (opRow?.setor_id ?? null) !== setor) return false;
+      if (gerente !== "all" && c.operator_id !== gerente && (opRow?.manager_id ?? null) !== gerente) return false;
+      return true;
     });
-  }, [convsRaw, setor]);
+  }, [convsRaw, setor, gerente]);
   // listAnalyses e listWebhookHealth são visões consolidadas (todos os
   // operadores) — restritas a admin, sem toggle por operador.
   const { data: analyses = [] } = useQuery({
@@ -250,15 +261,26 @@ function AlertasPage() {
         title="Central de alertas"
         subtitle={alerts.length > 0 ? `${alerts.length} alerta${alerts.length > 1 ? "s" : ""} ativo${alerts.length > 1 ? "s" : ""}` : "Sem alertas ativos"}
         actions={
-          setoresList.length > 0 ? (
-            <Select value={setor} onValueChange={setSetor}>
-              <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os setores</SelectItem>
-                {setoresList.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          ) : undefined
+          <>
+            {setoresList.length > 0 && (
+              <Select value={setor} onValueChange={setSetor}>
+                <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os setores</SelectItem>
+                  {setoresList.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            {managers.length > 0 && (
+              <Select value={gerente} onValueChange={setGerente}>
+                <SelectTrigger className="h-9 w-[160px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os gerentes</SelectItem>
+                  {managers.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+          </>
         }
       />
       <main className="grid flex-1 gap-6 p-4 md:p-6 lg:grid-cols-[1.4fr_1fr]">

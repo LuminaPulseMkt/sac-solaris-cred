@@ -116,6 +116,21 @@ export const updateOperator = createServerFn({ method: "POST" }).middleware([req
     return updated;
   });
 
+const assignManagerSchema = z.object({ operator_id: z.string().uuid(), manager_id: z.string().uuid().nullable() });
+
+export const assignOperatorManager = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requirePermission("manage_operators")])
+  .inputValidator((input) => assignManagerSchema.parse(input))
+  .handler(async ({ data }) => {
+    if (data.manager_id === data.operator_id) throw new Error("Um operador não pode ser gerente de si mesmo");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("operators")
+      .update({ manager_id: data.manager_id })
+      .eq("id", data.operator_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const regenerateToken = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requireAdmin])
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
@@ -252,7 +267,7 @@ export const listConversations = createServerFn({ method: "GET" }).middleware([r
   const myOpId = await resolveMyOperatorId((context as { userId?: string }).userId);
   let query = supabaseAdmin
     .from("conversations")
-    .select("*, operators(name, instance_name, setor_id)")
+    .select("*, operators(name, instance_name, setor_id, manager_id)")
     .order("updated_at", { ascending: false })
     .limit(1000);
   if (myOpId) query = query.eq("operator_id", myOpId);

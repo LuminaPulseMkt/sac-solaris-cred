@@ -31,6 +31,7 @@ import {
   deleteOperator,
   listWebhookLogs,
   fixWebhookUrls,
+  assignOperatorManager,
 } from "@/lib/operators.functions";
 import {
   listOperatorsWithAccess,
@@ -270,6 +271,7 @@ function OperatorsList({
   const regenFn = useServerFn(regenerateToken);
   const deleteFn = useServerFn(deleteOperator);
   const assignSetorFn = useServerFn(assignOperatorSetor);
+  const assignManagerFn = useServerFn(assignOperatorManager);
 
   async function handleSetorChange(operatorId: string, setorId: string) {
     try {
@@ -277,6 +279,15 @@ function OperatorsList({
       onChange();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao definir setor");
+    }
+  }
+
+  async function handleManagerChange(operatorId: string, managerId: string) {
+    try {
+      await assignManagerFn({ data: { operator_id: operatorId, manager_id: managerId === "none" ? null : managerId } });
+      onChange();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao definir gerente");
     }
   }
   const [testResult, setTestResult] = useState<TestResult | null>(null);
@@ -318,6 +329,7 @@ function OperatorsList({
               <TableHead>Operador</TableHead>
               <TableHead>Instância</TableHead>
               <TableHead>Setor</TableHead>
+              <TableHead>Gerente</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Última msg</TableHead>
               <TableHead>Hoje</TableHead>
@@ -345,6 +357,20 @@ function OperatorsList({
                         <SelectItem value="none">Sem setor</SelectItem>
                         {setores.map((s) => (
                           <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={(op as unknown as { manager_id?: string | null }).manager_id ?? "none"}
+                      onValueChange={(v) => handleManagerChange(op.id, v)}
+                    >
+                      <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sem gerente</SelectItem>
+                        {operators.filter((o) => o.id !== op.id).map((o) => (
+                          <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

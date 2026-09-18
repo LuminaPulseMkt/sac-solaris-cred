@@ -20,6 +20,7 @@ import { sendReportViaWhatsapp } from "@/lib/reports/whatsapp.functions";
 import { sendReportViaEmail } from "@/lib/reports/email.functions";
 import { generateReportPdf, type ReportAnalysisSummary } from "@/lib/reports/generate-pdf";
 import { formatDuration } from "@/lib/sac/format";
+import { extractDDD } from "@/lib/sac/phone";
 import { useProfile, useIsAdmin } from "@/contexts/profile-context";
 
 
@@ -84,6 +85,7 @@ function RelatoriosPage() {
   const canSendReportEmail = isAdmin || profile?.permissions?.can_send_report_email === true;
   const [period, setPeriod] = useState("7d");
   const [setor, setSetor] = useState("all");
+  const [gerente, setGerente] = useState("all");
   const [operator, setOperator] = useState("all");
   const [includeAi, setIncludeAi] = useState(true);
   const [sending, setSending] = useState(false);
@@ -151,11 +153,28 @@ function RelatoriosPage() {
     setor === "all" ? stats.map((s) => s.id) : stats.filter((s) => (s as unknown as { setor_id?: string | null }).setor_id === setor).map((s) => s.id),
   );
 
+  const managers = useMemo(() => {
+    const byId = new Map(stats.map((o) => [o.id, o]));
+    const managerIds = new Set(
+      stats.map((o) => (o as unknown as { manager_id?: string | null }).manager_id).filter((v): v is string => !!v),
+    );
+    return [...managerIds].map((id) => byId.get(id)).filter((o): o is NonNullable<typeof o> => !!o);
+  }, [stats]);
+
+  const operatorIdsInGerente = new Set(
+    gerente === "all"
+      ? stats.map((s) => s.id)
+      : stats
+          .filter((s) => s.id === gerente || (s as unknown as { manager_id?: string | null }).manager_id === gerente)
+          .map((s) => s.id),
+  );
+
   const filtered = convs.filter((c) => {
     const matchesPeriod = new Date(c.started_at) >= cutoff;
     const matchesOp = operator === "all" || c.operator_id === operator;
     const matchesSetor = setor === "all" || operatorIdsInSetor.has(c.operator_id ?? "");
-    return matchesPeriod && matchesOp && matchesSetor;
+    const matchesGerente = gerente === "all" || operatorIdsInGerente.has(c.operator_id ?? "");
+    return matchesPeriod && matchesOp && matchesSetor && matchesGerente;
   });
   const total = filtered.length;
   const avgScore = total ? Math.round(filtered.reduce((a, c) => a + (c.score_sac ?? 0), 0) / total) : 0;
@@ -172,6 +191,37 @@ function RelatoriosPage() {
     .filter((s) => setor === "all" || (s as unknown as { setor_id?: string | null }).setor_id === setor)
     .map((s) => ({ Operador: s.name, Conversas: s.total, Score: s.avgScore }))
     .sort((a, b) => b.Score - a.Score);
+
+  // Agrupado por gerente (gerente + operadores com manager_id = ele), no
+  // mesmo formato de OpStat, pra reaproveitar o OperatorReportTab.
+  const managerStats = managers.map((mgr) => {
+    const teamIds = new Set(
+      stats
+        .filter((s) => s.id === mgr.id || (s as unknown as { manager_id?: string | null }).manager_id === mgr.id)
+        .map((s) => s.id),
+    );
+    const cs = filtered.filter((c) => teamIds.has(c.operator_id ?? ""));
+    const total = cs.length;
+    const avgScore = total ? Math.round(cs.reduce((a, c) => a + (c.score_sac ?? 0), 0) / total) : 0;
+    const avgResp = total ? cs.reduce((a, c) => a + (c.avg_response_time_s ?? 0), 0) / total : 0;
+    const convRate = total ? (cs.filter((c) => c.converted).length / total) * 100 : 0;
+    return { id: mgr.id, name: mgr.name, total, avgScore, avgResp, convRate };
+  });
+
+  // Conversão por DDD, no mesmo período/filtros já aplicados em `filtered`.
+  const dddStats = (() => {
+    const byDdd = new Map<string, { total: number; converted: number }>();
+    for (const c of filtered) {
+      const ddd = extractDDD(c.lead_phone) ?? "—";
+      const cur = byDdd.get(ddd) ?? { total: 0, converted: 0 };
+      cur.total++;
+      if (c.converted) cur.converted++;
+      byDdd.set(ddd, cur);
+    }
+    return [...byDdd.entries()]
+      .map(([ddd, v]) => ({ ddd, total: v.total, converted: v.converted, rate: v.total ? (v.converted / v.total) * 100 : 0 }))
+      .sort((a, b) => b.total - a.total);
+  })();
 
   const numbers: Array<{ number: string; label?: string }> = (() => {
     try { return JSON.parse(settings?.values.report_whatsapp_numbers || "[]"); } catch { return []; }
@@ -297,7 +347,7 @@ function RelatoriosPage() {
       />
 
       <main className="flex-1 space-y-4 p-4 md:p-6">
-        <section className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[160px_160px_1fr_auto]">
+        <section className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-[160px_160px_160px_1fr_auto]">
           <div>
             <Label className="text-[11px] uppercase text-muted-foreground">Período</Label>
             <Select value={period} onValueChange={setPeriod}>
@@ -319,6 +369,18 @@ function RelatoriosPage() {
               </SelectContent>
             </Select>
           </div>
+          {managers.length > 0 && (
+          <div>
+            <Label className="text-[11px] uppercase text-muted-foreground">Gerente</Label>
+            <Select value={gerente} onValueChange={(v) => { setGerente(v); setOperator("all"); }}>
+              <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {managers.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          )}
           <div>
             <Label className="text-[11px] uppercase text-muted-foreground">Operador</Label>
             <Select value={operator} onValueChange={setOperator}>
@@ -327,6 +389,7 @@ function RelatoriosPage() {
                 <SelectItem value="all">Todos</SelectItem>
                 {stats
                   .filter((s) => setor === "all" || (s as unknown as { setor_id?: string | null }).setor_id === setor)
+                  .filter((s) => gerente === "all" || operatorIdsInGerente.has(s.id))
                   .map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -389,6 +452,7 @@ function RelatoriosPage() {
           <TabsList>
             <TabsTrigger value="geral">Visão Geral</TabsTrigger>
             <TabsTrigger value="operadores">Por Operador</TabsTrigger>
+            {managers.length > 0 && <TabsTrigger value="gerentes">Por Gerente</TabsTrigger>}
             <TabsTrigger value="ia">✨ Análise IA</TabsTrigger>
           </TabsList>
 
@@ -454,6 +518,32 @@ function RelatoriosPage() {
                 </table>
               )}
             </section>
+
+            <section className="rounded-lg border border-border bg-card p-4">
+              <h2 className="mb-3 text-sm font-semibold">Conversão por DDD</h2>
+              {dddStats.length === 0 ? (
+                <div className="py-12 text-center">
+                  <FileBarChart className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+                  <p className="text-sm font-medium">Sem dados para exibir.</p>
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="text-[11px] uppercase text-muted-foreground">
+                    <tr><th className="py-2 text-left">DDD</th><th className="text-left">Conversas</th><th className="text-left">Convertidas</th><th className="text-right">Conversão</th></tr>
+                  </thead>
+                  <tbody>
+                    {dddStats.map((d) => (
+                      <tr key={d.ddd} className="border-t border-border">
+                        <td className="py-2 font-mono">{d.ddd}</td>
+                        <td>{d.total}</td>
+                        <td>{d.converted}</td>
+                        <td className="text-right font-medium tabular-nums">{d.rate.toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </section>
           </TabsContent>
 
           <TabsContent value="operadores" className="mt-4">
@@ -465,6 +555,18 @@ function RelatoriosPage() {
               canAnalyzeAll={isAdmin}
             />
           </TabsContent>
+
+          {managers.length > 0 && (
+          <TabsContent value="gerentes" className="mt-4">
+            <OperatorReportTab
+              stats={managerStats}
+              metrics={[]}
+              analyzing={false}
+              onAnalyzeAll={() => {}}
+              canAnalyzeAll={false}
+            />
+          </TabsContent>
+          )}
 
           <TabsContent value="ia" className="mt-4">
             <AiReportTab
