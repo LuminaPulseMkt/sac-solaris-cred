@@ -89,6 +89,42 @@ export type Database = {
           },
         ]
       }
+      conversation_share_grants: {
+        Row: {
+          id: string
+          owner_operator_id: string
+          viewer_operator_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          owner_operator_id: string
+          viewer_operator_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          owner_operator_id?: string
+          viewer_operator_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_share_grants_owner_operator_id_fkey"
+            columns: ["owner_operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_share_grants_viewer_operator_id_fkey"
+            columns: ["viewer_operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       sla_rules: {
         Row: {
           id: string

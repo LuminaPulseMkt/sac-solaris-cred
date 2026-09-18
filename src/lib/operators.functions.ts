@@ -241,18 +241,33 @@ async function resolveMyOperatorId(userId: string | undefined): Promise<string |
   return data?.id ?? null;
 }
 
+// Operadores que este usuário pode ver: ele mesmo + qualquer owner que
+// tenha lhe dado acesso compartilhado (conversation_share_grants). Admin
+// (sem operador vinculado) não tem filtro nenhum — vê tudo, como sempre.
+async function resolveVisibleOperatorIds(userId: string | undefined): Promise<{ myOpId: string | null; visibleIds: string[] | null }> {
+  const myOpId = await resolveMyOperatorId(userId);
+  if (!myOpId) return { myOpId: null, visibleIds: null };
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: grants } = await supabaseAdmin
+    .from("conversation_share_grants")
+    .select("owner_operator_id")
+    .eq("viewer_operator_id", myOpId);
+  const sharedIds = (grants ?? []).map((g) => g.owner_operator_id);
+  return { myOpId, visibleIds: [myOpId, ...sharedIds] };
+}
+
 export const getConversationDetail = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
   .inputValidator((input) => conversationIdSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const myOpId = await resolveMyOperatorId((context as { userId?: string }).userId);
+    const { visibleIds } = await resolveVisibleOperatorIds((context as { userId?: string }).userId);
     const { data: conversation, error } = await supabaseAdmin
       .from("conversations")
       .select("*")
       .eq("id", data.id)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    if (myOpId && conversation && conversation.operator_id !== myOpId) {
+    if (visibleIds && conversation && !visibleIds.includes(conversation.operator_id)) {
       throw new Error("Acesso negado");
     }
     return conversation ?? null;
@@ -262,14 +277,14 @@ export const listConversationMessages = createServerFn({ method: "GET" }).middle
   .inputValidator((input) => conversationIdSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const myOpId = await resolveMyOperatorId((context as { userId?: string }).userId);
-    if (myOpId) {
+    const { visibleIds } = await resolveVisibleOperatorIds((context as { userId?: string }).userId);
+    if (visibleIds) {
       const { data: conv } = await supabaseAdmin
         .from("conversations")
         .select("operator_id")
         .eq("id", data.id)
         .maybeSingle();
-      if (!conv || conv.operator_id !== myOpId) throw new Error("Acesso negado");
+      if (!conv || !visibleIds.includes(conv.operator_id)) throw new Error("Acesso negado");
     }
     const { data: messages, error } = await supabaseAdmin
       .from("messages")
@@ -282,13 +297,13 @@ export const listConversationMessages = createServerFn({ method: "GET" }).middle
 
 export const listConversations = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const myOpId = await resolveMyOperatorId((context as { userId?: string }).userId);
+  const { visibleIds } = await resolveVisibleOperatorIds((context as { userId?: string }).userId);
   let query = supabaseAdmin
     .from("conversations")
     .select("*, operators(name, instance_name, setor_id, manager_id)")
     .order("updated_at", { ascending: false })
     .limit(1000);
-  if (myOpId) query = query.eq("operator_id", myOpId);
+  if (visibleIds) query = query.in("operator_id", visibleIds);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   type LastMessage = { text: string; at: string; from_role: string } | null;
@@ -330,15 +345,15 @@ export const listConversations = createServerFn({ method: "GET" }).middleware([r
 
 export const listOperatorStats = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const myOpId = await resolveMyOperatorId((context as { userId?: string }).userId);
+  const { visibleIds } = await resolveVisibleOperatorIds((context as { userId?: string }).userId);
   let opQuery = supabaseAdmin.from("operators").select("*").order("created_at", { ascending: false });
-  if (myOpId) opQuery = opQuery.eq("id", myOpId);
+  if (visibleIds) opQuery = opQuery.in("id", visibleIds);
   const { data: ops, error } = await opQuery;
   if (error) throw new Error(error.message);
   let convQuery = supabaseAdmin
     .from("conversations")
     .select("operator_id, score_sac, avg_response_time_s, converted, status, updated_at, started_at");
-  if (myOpId) convQuery = convQuery.eq("operator_id", myOpId);
+  if (visibleIds) convQuery = convQuery.in("operator_id", visibleIds);
   const { data: convs } = await convQuery;
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const stats = (ops ?? []).map((op) => {

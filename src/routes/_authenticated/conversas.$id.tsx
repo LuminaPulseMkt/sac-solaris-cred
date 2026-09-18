@@ -2,17 +2,19 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertCircle, ArrowLeft, ArrowRightLeft, Image as ImageIcon, Mic, FileText, MapPin, Sticker, Video } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRightLeft, Send, Image as ImageIcon, Mic, FileText, MapPin, Sticker, Video } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/app-header";
 import { ScoreBar } from "@/components/score-bar";
 import { AiAnalysisPanel } from "@/components/ai-analysis-panel";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProfile, useIsAdmin } from "@/contexts/profile-context";
 import { supabase } from "@/integrations/supabase/client";
 import { getConversationDetail, listConversationMessages, listOperatorStats, transferConversation } from "@/lib/operators.functions";
+import { sendConversationReply } from "@/lib/conversations/share.functions";
 import { formatTime, formatDateTime, formatDuration } from "@/lib/sac/format";
 
 export const Route = createFileRoute("/_authenticated/conversas/$id")({
@@ -77,11 +79,29 @@ function ConversationChatPage() {
   const fetchMessages = useServerFn(listConversationMessages);
   const statsFn = useServerFn(listOperatorStats);
   const transferFn = useServerFn(transferConversation);
+  const replyFn = useServerFn(sendConversationReply);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferTarget, setTransferTarget] = useState("");
   const [transferring, setTransferring] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [sending, setSending] = useState(false);
+
+  async function handleSendReply() {
+    const text = replyText.trim();
+    if (!text) return;
+    setSending(true);
+    try {
+      await replyFn({ data: { conversation_id: id, text } });
+      setReplyText("");
+      qc.invalidateQueries({ queryKey: ["messages", id] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao enviar mensagem");
+    } finally {
+      setSending(false);
+    }
+  }
 
   const { data: opStats = [] } = useQuery({
     queryKey: ["operator-stats"],
@@ -265,6 +285,24 @@ function ConversationChatPage() {
                 <div ref={bottomRef} />
               </div>
             )}
+          </div>
+          <div className="flex items-end gap-2 border-t p-3">
+            <Textarea
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendReply();
+                }
+              }}
+              placeholder="Responder pelo WhatsApp…"
+              className="min-h-[40px] resize-none"
+              rows={1}
+            />
+            <Button size="icon" onClick={handleSendReply} disabled={sending || !replyText.trim()}>
+              <Send className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </div>

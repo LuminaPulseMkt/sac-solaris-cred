@@ -54,7 +54,15 @@ async function assertOwnsConversation(userId: string | undefined, conversationId
     .select("operator_id")
     .eq("id", conversationId)
     .maybeSingle();
-  if (!conv || conv.operator_id !== op.id) throw new Error("Acesso negado");
+  if (!conv) throw new Error("Acesso negado");
+  if (conv.operator_id === op.id) return;
+  const { data: grant } = await supabaseAdmin
+    .from("conversation_share_grants")
+    .select("id")
+    .eq("owner_operator_id", conv.operator_id)
+    .eq("viewer_operator_id", op.id)
+    .maybeSingle();
+  if (!grant) throw new Error("Acesso negado");
 }
 
 export const analyzeConversationFn = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth, requirePermission("view_ai_analysis")])

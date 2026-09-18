@@ -43,6 +43,7 @@ import {
 import { copyToClipboard } from "@/lib/clipboard";
 import { listSetores, createSetor, updateSetor, deleteSetor, assignOperatorSetor } from "@/lib/setores/setores.functions";
 import { listOperatorsPermissions, updateOperatorPermissions } from "@/lib/permissions/permissions.functions";
+import { listShareGrants, createShareGrant, deleteShareGrant } from "@/lib/conversations/share.functions";
 import { PAGE_PERMISSIONS, ACTION_PERMISSIONS, MANAGEMENT_PERMISSIONS, PERMISSION_COLUMN, type OperatorPermissions } from "@/lib/permissions/permission-defaults";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useProfile, useIsAdmin } from "@/contexts/profile-context";
@@ -161,6 +162,7 @@ function IntegracaoPage() {
       setores: canManageSetores,
       permissoes: isAdmin,
       instances: canManageAccess,
+      compartilhamentos: canManageAccess,
       logs: isAdmin,
     };
     if (allowed[tab] === false) {
@@ -189,6 +191,7 @@ function IntegracaoPage() {
             {canManageSetores && <TabsTrigger value="setores">Setores</TabsTrigger>}
             {isAdmin && <TabsTrigger value="permissoes">Permissões</TabsTrigger>}
             {canManageAccess && <TabsTrigger value="instances">Instâncias</TabsTrigger>}
+            {canManageAccess && <TabsTrigger value="compartilhamentos">Compartilhamentos</TabsTrigger>}
             {isAdmin && <TabsTrigger value="logs">Logs de recebimento</TabsTrigger>}
           </TabsList>
 
@@ -229,6 +232,12 @@ function IntegracaoPage() {
           {canManageAccess && (
           <TabsContent value="instances">
             <InstancesAccessPanel />
+          </TabsContent>
+          )}
+
+          {canManageAccess && (
+          <TabsContent value="compartilhamentos">
+            <ShareGrantsTab />
           </TabsContent>
           )}
 
@@ -1202,6 +1211,132 @@ function InstancesAccessPanel() {
       <ChangePasswordDialog operator={passwordFor} onClose={() => setPasswordFor(null)} onSaved={() => { setPasswordFor(null); refresh(); }} />
       <RevokeAccessDialog operator={revokeFor} onClose={() => setRevokeFor(null)} onConfirmed={() => { setRevokeFor(null); refresh(); }} />
     </>
+  );
+}
+
+type ShareGrant = {
+  id: string;
+  owner_operator_id: string;
+  viewer_operator_id: string;
+  created_at: string;
+  owner: { name: string } | null;
+  viewer: { name: string } | null;
+};
+
+function ShareGrantsTab() {
+  const qc = useQueryClient();
+  const opsFn = useServerFn(listOperatorsWithAccess);
+  const listFn = useServerFn(listShareGrants);
+  const createFn = useServerFn(createShareGrant);
+  const deleteFn = useServerFn(deleteShareGrant);
+
+  const { data: ops = [] } = useQuery({ queryKey: ["operators-access"], queryFn: () => opsFn() });
+  const { data: grants = [], isLoading } = useQuery({ queryKey: ["share-grants"], queryFn: () => listFn() });
+
+  const [owner, setOwner] = useState("");
+  const [viewer, setViewer] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  function refresh() {
+    qc.invalidateQueries({ queryKey: ["share-grants"] });
+  }
+
+  async function handleCreate() {
+    if (!owner || !viewer) return toast.error("Escolha o dono da conversa e quem vai ter acesso");
+    setCreating(true);
+    try {
+      await createFn({ data: { owner_operator_id: owner, viewer_operator_id: viewer } });
+      toast.success("Acesso compartilhado concedido");
+      setOwner("");
+      setViewer("");
+      refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao conceder acesso");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleRevoke(id: string) {
+    try {
+      await deleteFn({ data: { id } });
+      toast.success("Acesso revogado");
+      refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao revogar");
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+        <p>
+          Dá pra um operador (viewer) ver e responder pela aba de Conversas de outro operador (dono), sem
+          virar dono de verdade — útil pra cobertura de férias/backup. As respostas enviadas usam a instância
+          WhatsApp do dono.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-4">
+        <div>
+          <Label className="text-[11px] uppercase text-muted-foreground">Dono da conversa</Label>
+          <Select value={owner} onValueChange={setOwner}>
+            <SelectTrigger className="mt-1 h-9 w-[200px]"><SelectValue placeholder="Selecione" /></SelectTrigger>
+            <SelectContent>
+              {ops.map((o) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="text-[11px] uppercase text-muted-foreground">Terá acesso (viewer)</Label>
+          <Select value={viewer} onValueChange={setViewer}>
+            <SelectTrigger className="mt-1 h-9 w-[200px]"><SelectValue placeholder="Selecione" /></SelectTrigger>
+            <SelectContent>
+              {ops.filter((o) => o.id !== owner).map((o) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button size="sm" onClick={handleCreate} disabled={creating}>Conceder acesso</Button>
+      </div>
+
+      {isLoading ? (
+        <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">Carregando…</div>
+      ) : grants.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
+          Nenhum acesso compartilhado concedido.
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Dono da conversa</TableHead>
+                <TableHead>Tem acesso</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(grants as unknown as ShareGrant[]).map((g) => (
+                <TableRow key={g.id}>
+                  <TableCell className="font-medium">{g.owner?.name ?? "—"}</TableCell>
+                  <TableCell>{g.viewer?.name ?? "—"}</TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-danger hover:bg-danger/10 hover:text-danger"
+                      onClick={() => handleRevoke(g.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Revogar
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
   );
 }
 
