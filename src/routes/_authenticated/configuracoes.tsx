@@ -26,6 +26,7 @@ import {
   addBlacklistedNumber,
   removeBlacklistedNumber,
 } from "@/lib/blacklist/blacklist.functions";
+import { listSlaRules, updateSlaRule } from "@/lib/sla/sla.functions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { testWhisperTranscription, transcribePendingAudios } from "@/lib/ai/ai.functions";
 import { cn } from "@/lib/utils";
@@ -63,6 +64,7 @@ function ConfiguracoesPage() {
             <TabsTrigger value="integracoes">Integrações</TabsTrigger>
             <TabsTrigger value="relatorios">Relatórios & WhatsApp</TabsTrigger>
             <TabsTrigger value="blacklist">Blacklist</TabsTrigger>
+            <TabsTrigger value="sla">SLA</TabsTrigger>
           </TabsList>
 
           <TabsContent value="geral" className="mt-4">
@@ -76,6 +78,9 @@ function ConfiguracoesPage() {
           </TabsContent>
           <TabsContent value="blacklist" className="mt-4">
             <BlacklistTab />
+          </TabsContent>
+          <TabsContent value="sla" className="mt-4">
+            <SlaTab />
           </TabsContent>
         </Tabs>
       </main>
@@ -310,6 +315,96 @@ function BlacklistTab() {
           </Table>
         </div>
       )}
+    </div>
+  );
+}
+
+const SLA_METRIC_LABELS: Record<string, { label: string; hint: string }> = {
+  no_response: { label: "Tempo sem resposta", hint: "Conversa em andamento sem nenhuma atividade há X minutos." },
+  first_response: { label: "Tempo até a primeira resposta", hint: "Ninguém respondeu o lead nos primeiros X minutos da conversa." },
+  resolution: { label: "Tempo até a resolução", hint: "Conversa em andamento aberta há mais de X minutos sem ser resolvida." },
+};
+
+function SlaTab() {
+  const qc = useQueryClient();
+  const listFn = useServerFn(listSlaRules);
+  const updateFn = useServerFn(updateSlaRule);
+
+  const { data: rules = [], isLoading } = useQuery({ queryKey: ["sla-rules"], queryFn: () => listFn() });
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+
+  async function handleSave(id: string) {
+    const raw = drafts[id];
+    const minutes = raw !== undefined ? Number(raw) : undefined;
+    if (minutes !== undefined && (!Number.isFinite(minutes) || minutes < 1)) {
+      return toast.error("Informe um número de minutos válido");
+    }
+    setSavingId(id);
+    try {
+      await updateFn({ data: { id, threshold_minutes: minutes } });
+      toast.success("Limite de SLA salvo");
+      qc.invalidateQueries({ queryKey: ["sla-rules"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar");
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function handleToggle(id: string, active: boolean) {
+    try {
+      await updateFn({ data: { id, active } });
+      qc.invalidateQueries({ queryKey: ["sla-rules"] });
+      toast.success(active ? "SLA ativado" : "SLA desativado");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar");
+    }
+  }
+
+  if (isLoading) {
+    return <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">Carregando…</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+        <p>
+          Quando uma conversa estoura o limite configurado abaixo, o gerente responsável (definido em
+          Integração → Operadores) recebe um e-mail automático. Operadores sem gerente definido caem nos
+          destinatários gerais de Configurações → Integrações. A verificação roda a cada 10 minutos e cada
+          conversa só gera um e-mail por regra (não repete o alerta pra mesma conversa).
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {rules.map((r) => {
+          const meta = SLA_METRIC_LABELS[r.metric] ?? { label: r.metric, hint: "" };
+          return (
+            <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-4">
+              <div className="min-w-[220px] flex-1">
+                <p className="text-sm font-medium">{meta.label}</p>
+                <p className="text-xs text-muted-foreground">{meta.hint}</p>
+              </div>
+              <Input
+                type="number"
+                min={1}
+                defaultValue={r.threshold_minutes}
+                onChange={(e) => setDrafts((d) => ({ ...d, [r.id]: e.target.value }))}
+                className="h-9 w-24"
+              />
+              <span className="text-xs text-muted-foreground">minutos</span>
+              <Button size="sm" variant="outline" onClick={() => handleSave(r.id)} disabled={savingId === r.id}>
+                Salvar
+              </Button>
+              <div className="flex items-center gap-2 border-l border-border pl-3">
+                <Switch checked={r.active} onCheckedChange={(v) => handleToggle(r.id, v)} id={`sla-${r.id}`} />
+                <Label htmlFor={`sla-${r.id}`} className="text-xs">{r.active ? "Ativo" : "Inativo"}</Label>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -23,6 +23,7 @@ import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authentic
 import { Route as AuthenticatedConversasIndexRouteImport } from './routes/_authenticated/conversas.index'
 import { Route as AuthenticatedConversasIdRouteImport } from './routes/_authenticated/conversas.$id'
 import { Route as ApiInternalSweepAnalysisRouteImport } from './routes/api/internal/sweep-analysis'
+import { Route as ApiInternalSweepSlaRouteImport } from './routes/api/internal/sweep-sla'
 import { Route as ApiPublicCampaignSendTokenRouteImport } from './routes/api/public/campaign/send/$token'
 import { Route as ApiPublicWebhookRecvTokenRouteImport } from './routes/api/public/webhook/recv/$token'
 
@@ -99,6 +100,11 @@ const ApiInternalSweepAnalysisRoute =
     path: '/api/internal/sweep-analysis',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiInternalSweepSlaRoute = ApiInternalSweepSlaRouteImport.update({
+  id: '/api/internal/sweep-sla',
+  path: '/api/internal/sweep-sla',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicCampaignSendTokenRoute =
   ApiPublicCampaignSendTokenRouteImport.update({
     id: '/api/public/campaign/send/$token',
@@ -125,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/conversas/$id': typeof AuthenticatedConversasIdRoute
   '/api/internal/sweep-analysis': typeof ApiInternalSweepAnalysisRoute
+  '/api/internal/sweep-sla': typeof ApiInternalSweepSlaRoute
   '/conversas/': typeof AuthenticatedConversasIndexRoute
   '/api/public/campaign/send/$token': typeof ApiPublicCampaignSendTokenRoute
   '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByTo {
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/conversas/$id': typeof AuthenticatedConversasIdRoute
   '/api/internal/sweep-analysis': typeof ApiInternalSweepAnalysisRoute
+  '/api/internal/sweep-sla': typeof ApiInternalSweepSlaRoute
   '/conversas': typeof AuthenticatedConversasIndexRoute
   '/api/public/campaign/send/$token': typeof ApiPublicCampaignSendTokenRoute
   '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
@@ -161,6 +169,7 @@ export interface FileRoutesById {
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/conversas/$id': typeof AuthenticatedConversasIdRoute
   '/api/internal/sweep-analysis': typeof ApiInternalSweepAnalysisRoute
+  '/api/internal/sweep-sla': typeof ApiInternalSweepSlaRoute
   '/_authenticated/conversas/': typeof AuthenticatedConversasIndexRoute
   '/api/public/campaign/send/$token': typeof ApiPublicCampaignSendTokenRoute
   '/api/public/webhook/recv/$token': typeof ApiPublicWebhookRecvTokenRoute
@@ -180,6 +189,7 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/conversas/$id'
     | '/api/internal/sweep-analysis'
+    | '/api/internal/sweep-sla'
     | '/conversas/'
     | '/api/public/campaign/send/$token'
     | '/api/public/webhook/recv/$token'
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/conversas/$id'
     | '/api/internal/sweep-analysis'
+    | '/api/internal/sweep-sla'
     | '/conversas'
     | '/api/public/campaign/send/$token'
     | '/api/public/webhook/recv/$token'
@@ -215,6 +226,7 @@ export interface FileRouteTypes {
     | '/_authenticated/relatorios'
     | '/_authenticated/conversas/$id'
     | '/api/internal/sweep-analysis'
+    | '/api/internal/sweep-sla'
     | '/_authenticated/conversas/'
     | '/api/public/campaign/send/$token'
     | '/api/public/webhook/recv/$token'
@@ -225,6 +237,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiInternalSweepAnalysisRoute: typeof ApiInternalSweepAnalysisRoute
+  ApiInternalSweepSlaRoute: typeof ApiInternalSweepSlaRoute
   ApiPublicCampaignSendTokenRoute: typeof ApiPublicCampaignSendTokenRoute
   ApiPublicWebhookRecvTokenRoute: typeof ApiPublicWebhookRecvTokenRoute
 }
@@ -329,6 +342,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiInternalSweepAnalysisRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/internal/sweep-sla': {
+      id: '/api/internal/sweep-sla'
+      path: '/api/internal/sweep-sla'
+      fullPath: '/api/internal/sweep-sla'
+      preLoaderRoute: typeof ApiInternalSweepSlaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/campaign/send/$token': {
       id: '/api/public/campaign/send/$token'
       path: '/api/public/campaign/send/$token'
@@ -380,6 +400,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiInternalSweepAnalysisRoute: ApiInternalSweepAnalysisRoute,
+  ApiInternalSweepSlaRoute: ApiInternalSweepSlaRoute,
   ApiPublicCampaignSendTokenRoute: ApiPublicCampaignSendTokenRoute,
   ApiPublicWebhookRecvTokenRoute: ApiPublicWebhookRecvTokenRoute,
 }

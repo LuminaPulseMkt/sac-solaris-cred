@@ -89,6 +89,69 @@ export type Database = {
           },
         ]
       }
+      sla_rules: {
+        Row: {
+          id: string
+          metric: string
+          threshold_minutes: number
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          metric: string
+          threshold_minutes: number
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          metric?: string
+          threshold_minutes?: number
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sla_notifications: {
+        Row: {
+          id: string
+          conversation_id: string
+          rule_id: string
+          notified_at: string
+        }
+        Insert: {
+          id?: string
+          conversation_id: string
+          rule_id: string
+          notified_at?: string
+        }
+        Update: {
+          id?: string
+          conversation_id?: string
+          rule_id?: string
+          notified_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sla_notifications_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sla_notifications_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "sla_rules"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       blacklisted_numbers: {
         Row: {
           id: string
