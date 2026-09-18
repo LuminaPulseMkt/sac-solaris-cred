@@ -199,6 +199,26 @@ export const Route = createFileRoute("/api/public/webhook/recv/$token")({
         const { resolvePushName, resolveLeadName } = await import("@/lib/sac/lead-name");
         const fromMe = payload.data?.key?.fromMe ?? false;
         const leadPhone = remoteJid.replace("@s.whatsapp.net", "").replace("@c.us", "");
+
+        // Número interno (blacklist) — não cria conversa/mensagem pra esse
+        // lead, então ele nunca aparece em IA, KPIs, relatórios ou dashboard.
+        const { data: blacklisted } = await supabase
+          .from("blacklisted_numbers")
+          .select("id")
+          .eq("phone_number", leadPhone)
+          .maybeSingle();
+        if (blacklisted) {
+          await supabase.from("webhook_logs").insert({
+            operator_id: operator.id,
+            http_status: 200,
+            payload_raw: { remoteJid, event: payload.event ?? "messages.upsert" } as never,
+            processed: false,
+            error_message: "Número na blacklist (interno) — ignorado",
+            origin_ip: originIp,
+          });
+          return Response.json({ ignored: true });
+        }
+
         const pushName = resolvePushName(fromMe, payload.data?.pushName);
         const leadName = resolveLeadName({ fromMe, pushName, leadPhone });
         const fromRole = fromMe ? "operator" : "lead";

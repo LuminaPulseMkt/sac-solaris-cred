@@ -89,6 +89,27 @@ export type Database = {
           },
         ]
       }
+      blacklisted_numbers: {
+        Row: {
+          id: string
+          phone_number: string
+          label: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          phone_number: string
+          label?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          phone_number?: string
+          label?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           created_at: string

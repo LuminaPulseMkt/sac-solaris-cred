@@ -21,6 +21,12 @@ import {
   testResendEmail,
   getActiveInstances,
 } from "@/lib/settings/settings.functions";
+import {
+  listBlacklistedNumbers,
+  addBlacklistedNumber,
+  removeBlacklistedNumber,
+} from "@/lib/blacklist/blacklist.functions";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { testWhisperTranscription, transcribePendingAudios } from "@/lib/ai/ai.functions";
 import { cn } from "@/lib/utils";
 import {
@@ -56,6 +62,7 @@ function ConfiguracoesPage() {
             <TabsTrigger value="geral">Geral</TabsTrigger>
             <TabsTrigger value="integracoes">Integrações</TabsTrigger>
             <TabsTrigger value="relatorios">Relatórios & WhatsApp</TabsTrigger>
+            <TabsTrigger value="blacklist">Blacklist</TabsTrigger>
           </TabsList>
 
           <TabsContent value="geral" className="mt-4">
@@ -66,6 +73,9 @@ function ConfiguracoesPage() {
           </TabsContent>
           <TabsContent value="relatorios" className="mt-4">
             <RelatoriosTab />
+          </TabsContent>
+          <TabsContent value="blacklist" className="mt-4">
+            <BlacklistTab />
           </TabsContent>
         </Tabs>
       </main>
@@ -187,6 +197,119 @@ function BusinessHoursCard() {
       <Button onClick={handleSave} disabled={saving} className="mt-4 h-9">
         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar horário comercial"}
       </Button>
+    </div>
+  );
+}
+
+function BlacklistTab() {
+  const qc = useQueryClient();
+  const listFn = useServerFn(listBlacklistedNumbers);
+  const addFn = useServerFn(addBlacklistedNumber);
+  const removeFn = useServerFn(removeBlacklistedNumber);
+
+  const { data: numbers = [], isLoading } = useQuery({
+    queryKey: ["blacklisted-numbers"],
+    queryFn: () => listFn(),
+  });
+
+  const [phone, setPhone] = useState("");
+  const [label, setLabel] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  async function handleAdd() {
+    const cleaned = phone.replace(/\D/g, "");
+    if (!cleaned) return toast.error("Informe o número");
+    setAdding(true);
+    try {
+      await addFn({ data: { phone_number: cleaned, label: label.trim() || undefined } });
+      toast.success("Número adicionado à blacklist");
+      setPhone("");
+      setLabel("");
+      qc.invalidateQueries({ queryKey: ["blacklisted-numbers"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao adicionar número");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function handleRemove(id: string) {
+    try {
+      await removeFn({ data: { id } });
+      toast.success("Número removido da blacklist");
+      qc.invalidateQueries({ queryKey: ["blacklisted-numbers"] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao remover número");
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+        <p>
+          Mensagens desses números (ramais internos, testes, etc.) são ignoradas assim que chegam pelo
+          webhook — nunca viram conversa, então não entram em análise de IA, KPIs, relatórios ou dashboard.
+          Só vale pra mensagens novas a partir de agora; conversas antigas do número não são apagadas.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2 rounded-lg border border-border bg-card p-4">
+        <Input
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="55 + DDD + número (ex: 5511999990001)"
+          className="h-9 w-[220px] font-mono"
+        />
+        <Input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="Rótulo (opcional, ex: Ramal interno)"
+          className="h-9 flex-1 min-w-[180px]"
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } }}
+        />
+        <Button size="sm" onClick={handleAdd} disabled={adding}>
+          {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          Adicionar
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">Carregando…</div>
+      ) : numbers.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
+          Nenhum número na blacklist.
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Número</TableHead>
+                <TableHead>Rótulo</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {numbers.map((n) => (
+                <TableRow key={n.id}>
+                  <TableCell className="font-mono text-xs">{n.phone_number}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{n.label || "—"}</TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-danger hover:bg-danger/10 hover:text-danger"
+                      onClick={() => handleRemove(n.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }
