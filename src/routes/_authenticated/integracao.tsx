@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Copy, RefreshCw, Trash2, Webhook, FlaskConical, Eye, Pencil, KeyRound, UserPlus, ShieldOff, Dices, CheckCircle, AlertTriangle } from "lucide-react";
+import { Copy, RefreshCw, Trash2, Webhook, FlaskConical, Eye, Pencil, KeyRound, UserPlus, ShieldOff, Dices, CheckCircle, AlertTriangle, Clock, History, Loader2 } from "lucide-react";
 import {
   listOperators,
   createOperator,
@@ -41,7 +41,19 @@ import {
   revokeOperatorAccess,
 } from "@/lib/operators/operator-auth.functions";
 import { copyToClipboard } from "@/lib/clipboard";
-import { listSetores, createSetor, updateSetor, deleteSetor, assignOperatorSetor } from "@/lib/setores/setores.functions";
+import {
+  listSetores,
+  createSetor,
+  updateSetor,
+  deleteSetor,
+  assignOperatorSetor,
+  updateSetorSla,
+  updateSetorBusinessHours,
+  updateSetorAlertNumber,
+  listSetorHistory,
+} from "@/lib/setores/setores.functions";
+import { WEEKDAY_LABELS, minutesToTime, parseTimeToMinutes } from "@/lib/sac/business-hours";
+import { cn } from "@/lib/utils";
 import { listOperatorsPermissions, updateOperatorPermissions } from "@/lib/permissions/permissions.functions";
 import { listShareGrants, createShareGrant, deleteShareGrant } from "@/lib/conversations/share.functions";
 import { PAGE_PERMISSIONS, ACTION_PERMISSIONS, MANAGEMENT_PERMISSIONS, PERMISSION_COLUMN, type OperatorPermissions } from "@/lib/permissions/permission-defaults";
@@ -208,7 +220,7 @@ function IntegracaoPage() {
 
           {canManageSetores && (
           <TabsContent value="setores">
-            <SetoresTab setores={setores.data ?? []} loading={setores.isLoading} onChange={refresh} />
+            <SetoresTab setores={setores.data ?? []} loading={setores.isLoading} onChange={refresh} isAdmin={isAdmin} />
           </TabsContent>
           )}
 
@@ -262,7 +274,17 @@ function IntegracaoPage() {
   );
 }
 
-type SetorRow = { id: string; name: string; operatorCount: number };
+type SetorRow = {
+  id: string;
+  name: string;
+  operatorCount: number;
+  sla_minutes?: number | null;
+  business_days?: string;
+  business_start_minutes?: number;
+  business_end_minutes?: number;
+  business_timezone?: string;
+  alert_whatsapp_number?: string | null;
+};
 
 function OperatorsList({
   operators,
@@ -531,10 +553,12 @@ function SetoresTab({
   setores,
   loading,
   onChange,
+  isAdmin,
 }: {
   setores: SetorRow[];
   loading: boolean;
   onChange: () => void;
+  isAdmin: boolean;
 }) {
   const createFn = useServerFn(createSetor);
   const updateFn = useServerFn(updateSetor);
@@ -544,6 +568,8 @@ function SetoresTab({
   const [editing, setEditing] = useState<SetorRow | null>(null);
   const [editName, setEditName] = useState("");
   const [toDelete, setToDelete] = useState<SetorRow | null>(null);
+  const [slaEditing, setSlaEditing] = useState<SetorRow | null>(null);
+  const [historyFor, setHistoryFor] = useState<SetorRow | null>(null);
 
   async function handleCreate() {
     const name = newName.trim();
@@ -615,6 +641,7 @@ function SetoresTab({
               <TableRow>
                 <TableHead>Setor</TableHead>
                 <TableHead>Operadores</TableHead>
+                {isAdmin && <TableHead>SLA (WhatsApp)</TableHead>}
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -623,8 +650,39 @@ function SetoresTab({
                 <TableRow key={s.id}>
                   <TableCell className="font-medium">{s.name}</TableCell>
                   <TableCell className="text-xs tabular-nums">{s.operatorCount}</TableCell>
+                  {isAdmin && (
+                    <TableCell className="text-xs text-muted-foreground">
+                      {s.sla_minutes ? (
+                        <div className="space-y-0.5">
+                          <p className="font-medium text-foreground">{s.sla_minutes} min</p>
+                          <p>
+                            {(s.business_days ?? "")
+                              .split(",")
+                              .map((d) => Number(d))
+                              .filter((d) => Number.isInteger(d))
+                              .map((d) => WEEKDAY_LABELS[d])
+                              .join(", ")}{" "}
+                            · {minutesToTime(s.business_start_minutes ?? 0)}–{minutesToTime(s.business_end_minutes ?? 0)}
+                          </p>
+                          <p className="font-mono">{s.alert_whatsapp_number || "sem número de alerta"}</p>
+                        </div>
+                      ) : (
+                        "Não configurado"
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      {isAdmin && (
+                        <>
+                          <Button size="sm" variant="ghost" title="Configurar SLA" onClick={() => setSlaEditing(s)}>
+                            <Clock className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="ghost" title="Histórico de alterações" onClick={() => setHistoryFor(s)}>
+                            <History className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
                       <Button size="sm" variant="ghost" title="Editar" onClick={() => { setEditing(s); setEditName(s.name); }}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
@@ -645,6 +703,9 @@ function SetoresTab({
           </Table>
         </div>
       )}
+
+      <SetorSlaDialog setor={slaEditing} onClose={() => setSlaEditing(null)} onSaved={onChange} />
+      <SetorHistoryDialog setor={historyFor} onClose={() => setHistoryFor(null)} />
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="max-w-sm">
@@ -673,6 +734,215 @@ function SetoresTab({
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+const HISTORY_FIELD_LABELS: Record<string, string> = {
+  sla_minutes: "Tempo de SLA",
+  business_hours: "Horário comercial",
+  alert_whatsapp_number: "Número de WhatsApp (alerta)",
+};
+
+function formatHistoryValue(field: string, value: unknown): string {
+  if (value == null) return "—";
+  if (field === "sla_minutes") return `${value} min`;
+  if (field === "business_hours" && typeof value === "object") {
+    const v = value as { business_days?: string; business_start_minutes?: number; business_end_minutes?: number };
+    const days = (v.business_days ?? "")
+      .split(",")
+      .map((d) => Number(d))
+      .filter((d) => Number.isInteger(d))
+      .map((d) => WEEKDAY_LABELS[d])
+      .join(", ");
+    return `${days} · ${minutesToTime(v.business_start_minutes ?? 0)}–${minutesToTime(v.business_end_minutes ?? 0)}`;
+  }
+  return String(value);
+}
+
+function SetorSlaDialog({
+  setor,
+  onClose,
+  onSaved,
+}: {
+  setor: SetorRow | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const slaFn = useServerFn(updateSetorSla);
+  const hoursFn = useServerFn(updateSetorBusinessHours);
+  const numberFn = useServerFn(updateSetorAlertNumber);
+
+  const [slaMinutes, setSlaMinutes] = useState("");
+  const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [start, setStart] = useState("08:00");
+  const [end, setEnd] = useState("20:00");
+  const [number, setNumber] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!setor) return;
+    setSlaMinutes(setor.sla_minutes != null ? String(setor.sla_minutes) : "");
+    const parsedDays = (setor.business_days ?? "1,2,3,4,5")
+      .split(",")
+      .map((d) => Number(d))
+      .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
+    setDays(parsedDays.length ? parsedDays : [1, 2, 3, 4, 5]);
+    setStart(minutesToTime(setor.business_start_minutes ?? 8 * 60));
+    setEnd(minutesToTime(setor.business_end_minutes ?? 20 * 60));
+    setNumber(setor.alert_whatsapp_number ?? "");
+  }, [setor]);
+
+  function toggleDay(day: number) {
+    setDays((d) => (d.includes(day) ? d.filter((x) => x !== day) : [...d, day].sort((a, b) => a - b)));
+  }
+
+  async function handleSave() {
+    if (!setor) return;
+    const minutes = slaMinutes.trim() === "" ? null : Number(slaMinutes);
+    if (minutes !== null && (!Number.isFinite(minutes) || minutes < 1)) {
+      return toast.error("Informe um número de minutos válido (ou deixe em branco pra desativar o SLA desse setor)");
+    }
+    if (days.length === 0) {
+      return toast.error("Selecione ao menos um dia da semana");
+    }
+    const startMinutes = parseTimeToMinutes(start);
+    const endMinutes = parseTimeToMinutes(end);
+    if (startMinutes == null || endMinutes == null) {
+      return toast.error("Informe um horário válido");
+    }
+
+    setSaving(true);
+    try {
+      await Promise.all([
+        slaFn({ data: { setor_id: setor.id, sla_minutes: minutes } }),
+        hoursFn({ data: { setor_id: setor.id, business_days: days, business_start_minutes: startMinutes, business_end_minutes: endMinutes } }),
+        numberFn({ data: { setor_id: setor.id, alert_whatsapp_number: number.trim() || null } }),
+      ]);
+      toast.success("Configuração de SLA salva");
+      onSaved();
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={!!setor} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>SLA do setor {setor?.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="sla-minutes">Tempo de SLA (minutos úteis sem resposta)</Label>
+            <Input
+              id="sla-minutes"
+              type="number"
+              min={1}
+              placeholder="Ex: 240 (deixe em branco pra desativar)"
+              value={slaMinutes}
+              onChange={(e) => setSlaMinutes(e.target.value)}
+              className="mt-1 h-9"
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="bh-start">Início do expediente</Label>
+              <Input id="bh-start" type="time" value={start} onChange={(e) => setStart(e.target.value)} className="mt-1 h-9" />
+            </div>
+            <div>
+              <Label htmlFor="bh-end">Fim do expediente</Label>
+              <Input id="bh-end" type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="mt-1 h-9" />
+            </div>
+          </div>
+
+          <div>
+            <Label>Dias úteis</Label>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {WEEKDAY_LABELS.map((label, day) => {
+                const active = days.includes(day);
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => toggleDay(day)}
+                    className={cn(
+                      "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-surface text-muted-foreground hover:bg-muted",
+                    )}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="alert-number">WhatsApp para alerta de SLA estourado</Label>
+            <Input
+              id="alert-number"
+              placeholder="Ex: 556199999999"
+              value={number}
+              onChange={(e) => setNumber(e.target.value)}
+              className="mt-1 h-9"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Alertas só saem dentro do horário comercial deste setor; se estourar fora do expediente, ficam na fila
+              até o próximo horário comercial.
+            </p>
+          </div>
+
+          <Button className="w-full" onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SetorHistoryDialog({ setor, onClose }: { setor: SetorRow | null; onClose: () => void }) {
+  const historyFn = useServerFn(listSetorHistory);
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["setor-history", setor?.id],
+    queryFn: () => historyFn({ data: { setor_id: setor!.id } }),
+    enabled: !!setor,
+  });
+
+  return (
+    <Dialog open={!!setor} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Histórico — {setor?.name}</DialogTitle>
+        </DialogHeader>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando…</p>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhuma alteração registrada ainda.</p>
+        ) : (
+          <div className="max-h-96 space-y-2 overflow-y-auto">
+            {rows.map((r) => (
+              <div key={r.id} className="rounded-md border border-border bg-surface p-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{HISTORY_FIELD_LABELS[r.field] ?? r.field}</span>
+                  <span className="text-muted-foreground">{new Date(r.created_at).toLocaleString("pt-BR")}</span>
+                </div>
+                <p className="mt-1 text-muted-foreground">
+                  {formatHistoryValue(r.field, r.old_value)} → <span className="font-medium text-foreground">{formatHistoryValue(r.field, r.new_value)}</span>
+                </p>
+                <p className="mt-1 text-muted-foreground">por {r.changed_by_label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

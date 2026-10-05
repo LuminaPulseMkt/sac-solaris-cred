@@ -151,3 +151,77 @@ export function describeBusinessHours(config: BusinessHoursConfig): string {
   const days = config.days.map((d) => WEEKDAY_LABELS[d]).join(", ");
   return `${days} · ${minutesToTime(config.startMinutes)}–${minutesToTime(config.endMinutes)} (${config.timezone})`;
 }
+
+/**
+ * Minutos corridos entre `from` e o horário local `minutesOfDay`, dentro da
+ * mesma janela comercial em que `from` já está (sem cruzar dia). Usado só
+ * internamente por `businessMinutesElapsed`.
+ */
+function minutesUntil(currentMinutes: number, targetMinutes: number): number {
+  return targetMinutes - currentMinutes;
+}
+
+/**
+ * Conta quantos minutos de `from` até `to` caem dentro do horário comercial
+ * de `config`, pulando noites/fins de semana fora da janela (o "relógio" do
+ * SLA pausa fora do expediente). Caminha em saltos (não minuto a minuto),
+ * reamostrando a hora local a cada salto — por isso é seguro mesmo com
+ * `to - from` cobrindo semanas. Como o Brasil não tem mais horário de
+ * verão, usar aritmética de milissegundos reais pros saltos é exato para
+ * `America/Sao_Paulo`; para outros fusos com DST pode haver um desvio de
+ * até 1h, duas vezes por ano — aceitável pro caso de uso (alerta de SLA).
+ */
+export function businessMinutesElapsed(
+  from: string | Date,
+  to: string | Date,
+  config: BusinessHoursConfig = DEFAULT_BUSINESS_HOURS,
+): number {
+  const start = from instanceof Date ? from : new Date(from);
+  const end = to instanceof Date ? to : new Date(to);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return 0;
+  if (!config.enabled) return Math.round((end.getTime() - start.getTime()) / 60_000);
+
+  const wraps = config.endMinutes <= config.startMinutes;
+  let total = 0;
+  let cursor = start;
+  let guard = 0;
+
+  while (cursor < end && guard++ < 1000) {
+    const { weekday, minutes } = localParts(cursor, config.timezone);
+    const dayOk = config.days.includes(weekday);
+
+    let inWindow: boolean;
+    let minutesLeftInWindow: number;
+    if (!wraps) {
+      inWindow = dayOk && minutes >= config.startMinutes && minutes < config.endMinutes;
+      minutesLeftInWindow = minutesUntil(minutes, config.endMinutes);
+    } else {
+      inWindow = dayOk && (minutes >= config.startMinutes || minutes < config.endMinutes);
+      minutesLeftInWindow =
+        minutes >= config.startMinutes ? 24 * 60 - minutes + config.endMinutes : minutesUntil(minutes, config.endMinutes);
+    }
+
+    if (inWindow) {
+      const stepMs = Math.min(minutesLeftInWindow * 60_000, end.getTime() - cursor.getTime());
+      total += stepMs / 60_000;
+      cursor = new Date(cursor.getTime() + stepMs);
+      continue;
+    }
+
+    // Fora da janela: pula pro próximo instante que pode estar dentro dela.
+    let jumpMinutes: number;
+    if (!dayOk) {
+      jumpMinutes = 24 * 60 - minutes; // vira o dia e reavalia
+    } else if (!wraps && minutes < config.startMinutes) {
+      jumpMinutes = minutesUntil(minutes, config.startMinutes); // ainda não abriu hoje
+    } else if (!wraps) {
+      jumpMinutes = 24 * 60 - minutes; // já fechou hoje
+    } else {
+      jumpMinutes = minutesUntil(minutes, config.startMinutes); // intervalo diurno de uma janela que cruza meia-noite
+    }
+    const stepMs = Math.min(Math.max(jumpMinutes, 1) * 60_000, end.getTime() - cursor.getTime());
+    cursor = new Date(cursor.getTime() + stepMs);
+  }
+
+  return Math.round(total);
+}
