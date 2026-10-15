@@ -57,6 +57,11 @@ function ConversasPage() {
   const { data: setoresList = [] } = useQuery({ queryKey: ["setores"], queryFn: () => setoresFn() });
   const { data: opStats = [] } = useQuery({ queryKey: ["operator-stats"], queryFn: () => statsFn() });
 
+  const operatorOptions = useMemo(
+    () => [...opStats].sort((a, b) => a.name.localeCompare(b.name)),
+    [opStats],
+  );
+
   const managers = useMemo(() => {
     const byId = new Map(opStats.map((o) => [o.id, o]));
     const managerIds = new Set(
@@ -82,6 +87,7 @@ function ConversasPage() {
   }, [qc]);
   const [search, setSearch] = useState("");
   const [setor, setSetor] = useState("all");
+  const [operador, setOperador] = useState("all");
   const [gerente, setGerente] = useState("all");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -92,6 +98,7 @@ function ConversasPage() {
     return rows.filter((c) => {
       const opRow = c.operators as { name?: string; setor_id?: string | null; manager_id?: string | null } | null;
       if (setor !== "all" && (opRow?.setor_id ?? null) !== setor) return false;
+      if (operador !== "all" && c.operator_id !== operador) return false;
       if (gerente !== "all" && c.operator_id !== gerente && (opRow?.manager_id ?? null) !== gerente) return false;
       if (!search) return true;
       const q = search.toLowerCase();
@@ -100,7 +107,7 @@ function ConversasPage() {
         c.lead_phone.toLowerCase().includes(q) ||
         op.includes(q);
     });
-  }, [rows, search, setor, gerente]);
+  }, [rows, search, setor, operador, gerente]);
 
   const recurringPhones = useMemo(() => {
     const count: Record<string, number> = {};
@@ -177,6 +184,15 @@ function ConversasPage() {
               <SelectContent>
                 <SelectItem value="all">Todos os setores</SelectItem>
                 {setoresList.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          {operatorOptions.length > 0 && (
+            <Select value={operador} onValueChange={(v) => { setOperador(v); setPage(1); }}>
+              <SelectTrigger className="h-9 w-[180px]"><SelectValue placeholder="Operador" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os operadores</SelectItem>
+                {operatorOptions.map((o) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
               </SelectContent>
             </Select>
           )}
